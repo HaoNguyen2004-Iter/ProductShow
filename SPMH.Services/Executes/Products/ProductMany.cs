@@ -130,7 +130,7 @@ namespace SPMH.Services.Executes.Products
             if (!string.IsNullOrWhiteSpace(f.Brand))
             {
                 var brand = f.Brand.Trim();
-                query = query.Where(p => EF.Functions.Like(p.Brand.Name, $"%{brand}%"));
+                query = query.Where(p => EF.Functions.Like(p.Brand.Name, brand));
             }
 
             if (f.Price.HasValue)
