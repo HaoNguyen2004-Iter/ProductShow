@@ -52,7 +52,7 @@ function getReloadUrl() {
 
         if (stRaw === 'active') params.append('status', '1');
         else if (stRaw === 'inactive') params.append('status', '0');
-
+        ok
         return params.toString();
     }
     function buildSearchUrl(base = '/Product/Index') {
