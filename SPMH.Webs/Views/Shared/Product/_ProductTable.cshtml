@@ -1,0 +1,120 @@
+﻿@model SPMH.Services.Models.PagedResult<SPMH.Services.Models.ProductModel>
+
+
+<div class="table-responsive justify-content-center shadow-lg">
+	<table class="table table-striped align-middle">
+		<thead>
+			<tr>
+				<th style="width:36px">
+					<input type="checkbox" id="chkSelectAll" class="form-check-input" title="Chọn tất cả" />
+				</th>
+				<th style="width:110px">Ảnh</th>
+				<th>Mã / Tên</th>
+				<th>Mô tả</th>
+				<th class="text-center">Hãng</th>
+				<th class="text-center">Giá (VND)</th>
+				<th class="text-center">Kho</th>
+				<th class="text-center">Trạng thái</th>
+				<th style="width:220px"></th>
+			</tr>
+		</thead>
+		<tbody>
+			@foreach (var p in Model.Items)
+			{
+				<tr>
+					<td>
+						<input type="checkbox" class="form-check-input js-chk-item" name="ids" value="@p.Id" />
+					</td>
+					<td>
+						<img src="@Url.Content(string.IsNullOrWhiteSpace(p.Url) ? "/uploads/products/sp1.jpg" : p.Url)"
+							 alt="@p.Name" style="width:100px;height:auto;object-fit:cover;border-radius:.5rem" />
+					</td>
+					<td><div class="fw-semibold">@p.Code</div><div>@p.Name</div></td>
+					<td>@p.Description</td>
+					<td class="text-center">@p.BrandName</td>
+					<td class="text-center">@p.PriceVnd.ToString("#,0")</td>
+					<td class="text-center">@p.Stock</td>
+					<td class="text-center">
+						@if (p.Status == 1)
+						{
+							<span class="badge bg-success">Hoạt động</span>
+						}
+						else
+						{
+							<span class="badge bg-secondary">Dừng bán</span>
+						}
+					</td>
+					<td class="text-nowrap">
+						<a class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#modalDetail" data-id="@p.Id">Xem</a>
+						<a class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#modalDelete" data-id="@p.Id">Xóa</a>
+						<a class="btn btn-sm btn-outline-warning" data-bs-toggle="modal" data-bs-target="#modalEdit" data-id="@p.Id">Sửa</a>
+					</td>
+				</tr>
+			}
+		</tbody>
+	</table>
+</div>
+
+@if (Model.TotalPages > 1)
+{
+	<nav class="d-flex justify-content-center">
+		<ul class="pagination mb-0">
+			<li class="page-item @(Model.Page <= 1 ? "disabled" : "")">
+				<a class="page-link" href="@Url.Action("Index", "Product", new { page = Model.Page - 1, pageSize = Model.PageSize })">«</a>
+			</li>
+
+			@if (Model.TotalPages <= 5)
+			{
+				for (var i = 1; i <= Model.TotalPages; i++)
+				{
+					<li class="page-item @(i == Model.Page ? "active" : "")">
+						<a class="page-link" href="@Url.Action("Index", "Product", new { page = i, pageSize = Model.PageSize })">@i</a>
+					</li>
+				}
+			}
+			else
+			{
+				const int windowSize = 5;
+				var start = Math.Max(1, Model.Page - 2);
+				var end = Math.Min(Model.TotalPages, start + windowSize - 1);
+				if (end - start + 1 < windowSize)
+				{
+					start = Math.Max(1, end - windowSize + 1);
+				}
+
+				if (start > 1)
+				{
+					<li class="page-item @(Model.Page == 1 ? "active" : "")">
+						<a class="page-link" href="@Url.Action("Index", "Product", new { page = 1, pageSize = Model.PageSize })">1</a>
+					</li>
+					if (start > 2)
+					{
+						<li class="page-item disabled"><span class="page-link">…</span></li>
+					}
+				}
+
+				for (var i = start; i <= end; i++)
+				{
+					<li class="page-item @(i == Model.Page ? "active" : "")">
+						<a class="page-link" href="@Url.Action("Index", "Product", new { page = i, pageSize = Model.PageSize })">@i</a>
+					</li>
+				}
+
+				if (end < Model.TotalPages)
+				{
+					if (end < Model.TotalPages - 1)
+					{
+						<li class="page-item disabled"><span class="page-link">…</span></li>
+					}
+					<li class="page-item @(Model.Page == Model.TotalPages ? "active" : "")">
+						<a class="page-link" href="@Url.Action("Index", "Product", new { page = Model.TotalPages, pageSize = Model.PageSize })">@Model.TotalPages</a>
+					</li>
+				}
+			}
+
+			<li class="page-item @(Model.Page >= Model.TotalPages ? "disabled" : "")">
+				<a class="page-link" href="@Url.Action("Index", "Product", new { page = Model.Page + 1, pageSize = Model.PageSize })">»</a>
+			</li>
+		</ul>
+	</nav>
+}

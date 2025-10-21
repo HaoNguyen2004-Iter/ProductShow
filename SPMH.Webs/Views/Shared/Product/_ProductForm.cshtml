@@ -1,0 +1,78 @@
+﻿@model SPMH.Services.Models.ProductModel
+@{
+    var isEdit = Model != null && Model.Id > 0;
+}
+
+<div class="container my-5">
+    <div class="card shadow-sm border-0">
+        <div class="card-body">
+            <div id="productForm" data-mode="@(isEdit ? "edit" : "create")" data-id="@(Model?.Id ?? 0)">
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Mã sản phẩm</label>
+                        <input name="Code" class="form-control" placeholder="VD: ASUS-24FHD" value="@(Model?.Code ?? string.Empty)" required />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label fw-bold">Tên sản phẩm</label>
+                        <input name="Name" class="form-control" placeholder="Tên sản phẩm" value="@(Model?.Name ?? string.Empty)" required />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Thương hiệu</label>
+                        <select name="BrandName" class="form-select" required>
+                            <option value="">-- Chọn thương hiệu --</option>
+                            @if (ViewBag.Brands is IEnumerable<SPMH.Services.Models.BrandModel> brands)
+                            {
+                                foreach (var b in brands)
+                                {
+                                    <option value="@b.Name" selected="@(b.Name == (Model?.BrandName ?? string.Empty) ? "selected" : null)">@b.Name</option>
+                                }
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Giá (VND)</label>
+                        <input name="PriceVnd" type="number" class="form-control" min="0" step="1000" value="@(Model?.PriceVnd ?? 0)" required />
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold">Tồn kho</label>
+                        <input name="Stock" type="number" class="form-control" min="0" value="@(Model?.Stock ?? 0)" required />
+                    </div>
+
+                    <div class="col-md-4">
+                        <label class="form-label fw-bold d-block">Trạng thái</label>
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="chkStatus" name="Status" @( (Model?.Status ?? 1) == 1 ? "checked" : null ) />
+                            <label class="form-check-label" for="chkStatus">
+                                @(((Model?.Status ?? 1) == 1) ? "Hoạt động" : "Dừng bán")
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Ảnh sản phẩm</label>
+                        <div class="input-group">
+                            <input type="file" name="ProductImage" class="form-control" accept="image/*" />
+                            <button class="btn btn-outline-secondary" type="button" onclick="this.previousElementSibling.value = ''">Xóa</button>
+                        </div>
+                        @if (!string.IsNullOrWhiteSpace(Model?.Url))
+                        {
+                            <div class="mt-2">
+                                <img src="@Url.Content(Model.Url)" alt="Ảnh sản phẩm" class="img-fluid rounded shadow-sm" style="max-height: 150px; object-fit: contain;" />
+                            </div>
+                        }
+                    </div>
+
+                    <div class="col-12">
+                        <label class="form-label fw-bold">Mô tả</label>
+                        <textarea name="Description" class="form-control" rows="4" placeholder="Mô tả sản phẩm">@(Model?.Description ?? string.Empty)</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-light text-end">
+            <button class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal" type="button">Đóng</button>
+            <button id="btnSaveProduct" class="btn btn-primary btn-sm" type="button">Lưu</button>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,102 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Sản phẩm";
+}
+@model SPMH.Services.Models.PagedResult<SPMH.Services.Models.ProductModel>
+
+<!-- Thanh Toolbar -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+    <h3 class="mb-0">Sản phẩm</h3>
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#modalCreate">+ Thêm sản phẩm</button>
+        <button id="btnBulkDelete"
+                class="btn btn-danger"
+                type="button"
+                data-bs-toggle="modal"
+                data-bs-target="#modalDelete"
+                data-bulk="true"
+                disabled>
+            Xóa đã chọn
+        </button>
+    </div>
+</div>
+<!-- Thanh tìm kiếm -->
+<div class="card mb-2">
+    <div class="card-body">
+        <form id="searchForm" class="row g-3 align-items-end">
+            <!-- Tìm kiếm theo tên/mã -->
+            <div class="col-md-3">
+                <label class="form-label fw-bold">Tên / Mã sản phẩm</label>
+                <input type="text"
+                       class="form-control"
+                       id="searchText"
+                       placeholder="Nhập tên hoặc mã..."
+                       autocomplete="off">
+            </div>
+
+            <!-- Lọc theo hãng -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Hãng</label>
+                @{
+                    var curBrand = (string?)Context.Request.Query["brand"];
+                }
+                <select id="brandFilter" name="brand" class="form-select">
+                    <option value="">Tất cả hãng</option>
+                    @if (ViewBag.Brands is IEnumerable<SPMH.Services.Models.BrandModel> brands)
+                    {
+                        foreach (var b in brands)
+                        {
+                            var selected = string.Equals(curBrand, b.Name, StringComparison.OrdinalIgnoreCase) ? "selected" : null;
+                            <option value="@b.Name" selected="@selected">@b.Name</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <!-- Lọc theo giá -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Giá</label>
+                <div class="input-group">
+                    <span class="input-group-text">₫</span>
+                    <input type="number"
+                           class="form-control"
+                           id="Price"
+                           placeholder="0"
+                           min="0"
+                           step="1000">
+                </div>
+            </div>
+
+            <!-- Lọc theo số lượng -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Số lượng tối thiểu</label>
+                <input type="number"
+                       class="form-control"
+                       id="Stock"
+                       placeholder="0"
+                       min="0">
+            </div>
+
+            <!-- Lọc theo trạng thái -->
+            <div class="col-md-2">
+                <label class="form-label fw-bold">Trạng thái</label>
+                <select class="form-select" id="statusFilter">
+                    <option value="">Tất cả</option>
+                    <option value="active">Hoạt động</option>
+                    <option value="inactive">Dừng bán</option>
+                </select>
+            </div>
+            <div class="col-md-1">
+                <button type="button"
+                        id="resetBtn"
+                        class="btn btn-outline-secondary w-100">
+                    <i class="bi bi-arrow-clockwise"></i> Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="productTableWrap">
+    @await Html.PartialAsync("~/Views/Shared/Product/_ProductTable.cshtml", Model)
+</div>

@@ -1,0 +1,33 @@
+﻿<!doctype html>
+<html lang="vi">
+<head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>@ViewData["Title"]</title>
+	<link href="~/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-body-tertiary">
+
+	<div id="app" class="container py-4">
+		@RenderBody()
+	</div>
+
+	<!-- Modal -->
+	<div class="modal fade" id="modalOpen" tabindex="-1" aria-hidden="true">
+		<div class="modal-dialog modal-lg modal-dialog-scrollable">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title">Đang tải…</h5>
+					<button class="btn-close" data-bs-dismiss="modal"></button>
+				</div>
+				<div class="modal-body" id="modalBody">Đang tải…</div>
+			</div>
+		</div>
+	</div>
+
+	<script src="https://code.jquery.com/jquery-3.7.1.min.js" crossorigin="anonymous"></script>
+	<script src="~/js/bootstrap.bundle.min.js"></script>
+	<script src="@Url.Content("~/js/script.js")"></script>
+
+</body>
+</html>

@@ -1,0 +1,53 @@
+﻿@model SPMH.Services.Models.ProductModel
+
+<div class="container my-5">
+	<div class="card shadow-sm border-0">
+		<div class="card-body">
+			<div class="d-flex justify-content-between align-items-center mb-3">
+				<h5 class="mb-0">@Model.Name</h5>
+				@if (Model.Status == 1)
+				{
+					<span class="btn btn-sm btn-success disabled">Hoạt động</span>
+				}
+				else
+				{
+					<span class="btn btn-sm btn-secondary disabled">Dừng bán</span>
+				}
+			</div>
+			<div class="row g-4">
+				<!-- Product Image -->
+				<div class="col-lg-5">
+					<div class="text-center">
+						<img src="@Url.Content(string.IsNullOrWhiteSpace(Model.Url) ? "/uploads/products/sp1.jpg" : Model.Url)"
+							 alt="@Model.Name" class="img-fluid rounded shadow-sm" style="max-height: 400px; object-fit: contain;" />
+					</div>
+				</div>
+				<!-- Product Details -->
+				<div class="col-lg-7">
+					<div class="row g-3">
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Mã sản phẩm</label>
+							<div class="form-control-plaintext">@Model.Code</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Thương hiệu</label>
+							<div class="form-control-plaintext">@Model.BrandName</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Giá (VND)</label>
+							<div class="form-control-plaintext text-success fw-bold">@Model.PriceVnd.ToString("#,0")</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Tồn kho</label>
+							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.Stock.ToString("#,0")</div>
+						</div>
+						<div class="col-12">
+							<label class="form-label fw-bold">Mô tả</label>
+							<div class="form-control-plaintext">@Model.Description</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
