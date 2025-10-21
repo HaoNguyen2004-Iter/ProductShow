@@ -160,7 +160,7 @@ namespace SPMH.Webs.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Upload(IFormFile file)
+        public async Task<IActionResult> Upload([FromForm] IFormFile file)
         {
             try
             {

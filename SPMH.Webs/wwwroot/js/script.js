@@ -102,7 +102,6 @@ function getReloadUrl() {
         $f.trigger('submit');
     });
 
-    // ========== Các handler sẵn có ==========
     // Sự kiện click mở Create hoặc Edit
     $(document).on('click', '[data-bs-target="#modalCreate"], [data-bs-target="#modalEdit"]', function (e) {
         e.preventDefault();
@@ -166,7 +165,7 @@ function getReloadUrl() {
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
         const $btn = $(this).prop('disabled', true);
 
-        const fileInput = $wrap.find('input[name="ProductImage"]');
+        const fileInput = $wrap.find('input[name="ProductImage"]')[0];
         const file = fileInput && fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
 
         function saveProduct() {

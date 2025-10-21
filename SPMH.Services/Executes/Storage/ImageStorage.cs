@@ -7,7 +7,7 @@ namespace SPMH.Services.Executes.Storage
     {
         private static readonly HashSet<string> AllowedExt = new(StringComparer.OrdinalIgnoreCase)
             {
-                ".jpg", ".jpeg", ".png", ".gif", ".webp"
+                ".jpg", ".jpeg", ".png"
             };
 
         private readonly string _physicalRoot;
