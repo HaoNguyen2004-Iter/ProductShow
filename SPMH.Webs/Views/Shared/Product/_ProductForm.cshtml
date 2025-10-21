@@ -52,7 +52,7 @@
                     <div class="col-12">
                         <label class="form-label fw-bold">Ảnh sản phẩm</label>
                         <div class="input-group">
-                            <input type="file" name="ProductImage" class="form-control" accept="image/*" />
+                            <input type="file" name="ProductImage" class="form-control" accept="image/*" id="ProductImage" />
                             <button class="btn btn-outline-secondary" type="button" onclick="this.previousElementSibling.value = ''">Xóa</button>
                         </div>
                         @if (!string.IsNullOrWhiteSpace(Model?.Url))

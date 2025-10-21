@@ -1,6 +1,46 @@
 ﻿const loadingHtml = '<div class="d-flex justify-content-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
 const tableSel = '#productTableWrap';
 
+function debounce(fn, ms) {
+    let t;
+    return function () {
+        clearTimeout(t);
+        const args = arguments, ctx = this;
+        t = setTimeout(() => fn.apply(ctx, args), ms);
+    };
+}
+
+function buildSearchQuery() {
+    const $form = $('#searchForm');
+    if ($form.length === 0) return '';
+
+    const text = ($('#searchText').val() || '').trim();
+    const brand = ($('#brandFilter').val() || '').trim();
+    const price = ($('#Price').val() || '').trim();
+    const stock = ($('#Stock').val() || '').trim();
+    const stRaw = ($('#statusFilter').val() || '').trim();
+
+    const params = new URLSearchParams();
+
+    if (text) {
+        params.append('name', text);
+        params.append('code', text);
+    }
+    if (brand) params.append('brand', brand);
+    if (price) params.append('price', price);
+    if (stock) params.append('stock', stock);
+
+    if (stRaw === 'active') params.append('status', '1');
+    else if (stRaw === 'inactive') params.append('status', '0');
+
+    return params.toString();
+}
+
+function buildSearchUrl(base = '/Product/Index') {
+    const qs = buildSearchQuery();
+    return base + (qs ? ('?' + qs) : '');
+}
+
 function loadTable(url) {
     if (!url) url = '/Product/Index';
     const $wrap = $(tableSel);
@@ -19,56 +59,41 @@ function loadTable(url) {
             $wrap.html('<div class="alert alert-danger">' + msg + '</div>');
         });
 }
+
 function showTempAlert(message, type = 'success', ms = 2000) {
     const $alert = $('<div class="alert alert-' + type + ' position-fixed top-0 start-50 translate-middle-x mt-3 shadow" style="z-index:1080"></div>').text(message);
     $('body').append($alert);
     setTimeout(() => $alert.fadeOut(200, () => $alert.remove()), ms);
 }
+
 function getReloadUrl() {
     const el = document.getElementById('btnReload');
     return (el && (el.getAttribute('data-href') || el.getAttribute('href'))) || location.href;
 }
 
+function getSelectedIds() {
+    const ids = [];
+    document.querySelectorAll('.js-chk-item:checked').forEach(el => {
+        const v = parseInt(el.value, 10);
+        if (!isNaN(v)) ids.push(v);
+    });
+    return ids;
+}
+
+function updateBulkState() {
+    const total = document.querySelectorAll('.js-chk-item').length;
+    const checked = document.querySelectorAll('.js-chk-item:checked').length;
+
+    $('#btnBulkDelete').prop('disabled', checked === 0);
+
+    const $all = $('#chkSelectAll');
+    $all.prop('indeterminate', checked > 0 && checked < total);
+    $all.prop('checked', total > 0 && checked === total);
+}
+
 (function ($) {
-    function buildSearchQuery() {
-        const $form = $('#searchForm');
-        if ($form.length === 0) return '';
-
-        const text = ($('#searchText').val() || '').trim();
-        const brand = ($('#brandFilter').val() || '').trim();
-        const price = ($('#Price').val() || '').trim();
-        const stock = ($('#Stock').val() || '').trim();
-        const stRaw = ($('#statusFilter').val() || '').trim();
-
-        const params = new URLSearchParams();
-
-        if (text) {
-            params.append('name', text);
-            params.append('code', text);
-        }
-        if (brand) params.append('brand', brand);
-        if (price) params.append('price', price);
-        if (stock) params.append('stock', stock);
-
-        if (stRaw === 'active') params.append('status', '1');
-        else if (stRaw === 'inactive') params.append('status', '0');
-
-        return params.toString();
-    }
-    function buildSearchUrl(base = '/Product/Index') {
-        const qs = buildSearchQuery();
-        return base + (qs ? ('?' + qs) : '');
-    }
-    function debounce(fn, ms) {
-        let t;
-        return function () {
-            clearTimeout(t);
-            const args = arguments, ctx = this;
-            t = setTimeout(() => fn.apply(ctx, args), ms);
-        };
-    }
-
     let isComposing = false;
+    // Kiểm tra nhập liệu
     $(document).on('compositionstart', '#searchText', function () {
         isComposing = true;
     });
@@ -90,6 +115,7 @@ function getReloadUrl() {
 
     // Debounce khi gõ ô từ khóa
     $(document).on('input', '#searchText', debounce(function () {
+        if (isComposing) return;
         $('#searchForm').trigger('submit');
     }, 400));
 
@@ -133,6 +159,60 @@ function getReloadUrl() {
     $(document).on('change', '#chkStatus', function () {
         const $lbl = $(this).siblings('label[for="chkStatus"]');
         $lbl.text(this.checked ? 'Hoạt động' : 'Dừng bán');
+    });
+
+    // Preview ảnh ngay khi chọn file
+    $(document).on('change', 'input[name="ProductImage"]', function () {
+        const file = this.files && this.files[0];
+        const $col = $(this).closest('.col-12');
+
+        // Tìm ảnh preview có sẵn (nếu đã render từ server), nếu không có thì tạo mới
+        let $previewImg = $col.find('img').first();
+        if ($previewImg.length === 0) {
+            // Tạo khung preview sau input-group
+            let $box = $col.find('#jsPreviewBox');
+            if ($box.length === 0) {
+                $box = $('<div id="jsPreviewBox" class="mt-2"></div>').insertAfter($(this).closest('.input-group'));
+            }
+            $previewImg = $('<img class="img-fluid rounded shadow-sm" style="max-height: 150px; object-fit: contain;" />');
+            $box.empty().append($previewImg);
+        }
+
+        // Lưu src gốc để có thể khôi phục khi xoá chọn file
+        if (!$previewImg.data('orig')) {
+            $previewImg.data('orig', $previewImg.attr('src') || '');
+        }
+
+        if (!file) {
+            // Không có file (đã xoá chọn): khôi phục ảnh gốc hoặc xoá preview nếu không có gốc
+            const orig = $previewImg.data('orig');
+            if (orig) $previewImg.attr('src', orig);
+            else $previewImg.closest('#jsPreviewBox').remove();
+            return;
+        }
+
+        if (!file.type || !file.type.startsWith('image/')) {
+            showTempAlert('Vui lòng chọn tệp ảnh hợp lệ.', 'warning');
+            this.value = '';
+            const orig = $previewImg.data('orig');
+            if (orig) $previewImg.attr('src', orig);
+            else $previewImg.closest('#jsPreviewBox').remove();
+            return;
+        }
+
+        const blobUrl = URL.createObjectURL(file);
+        $previewImg.attr('src', blobUrl).one('load', function () {
+            URL.revokeObjectURL(blobUrl);
+        });
+    });
+
+    // Khi bấm nút "Xóa" cạnh ô file thì xoá preview luôn
+    $(document).on('click', '.input-group .btn.btn-outline-secondary', function () {
+        const $input = $(this).siblings('input[type="file"][name="ProductImage"]');
+        if ($input.length) {
+            $input.val('');
+            $input.trigger('change');
+        }
     });
 
     // Xử lý nút lưu cho Create và Edit
@@ -183,7 +263,6 @@ function getReloadUrl() {
 
                     const msg = (res && (res.message || res.error)) || 'Lưu thành công';
                     showTempAlert(msg, 'success');
-                    // Giữ bộ lọc hiện tại sau khi lưu
                     loadTable(buildSearchUrl());
                 })
                 .fail(function (xhr) {
@@ -197,6 +276,7 @@ function getReloadUrl() {
                     $btn.prop('disabled', false);
                 });
         }
+
         if (file) {
             const fd = new FormData();
             fd.append('file', file);
@@ -223,9 +303,8 @@ function getReloadUrl() {
                     $btn.prop('disabled', false);
                 });
         } else {
-            saveProduct()
+            saveProduct();
         }
-
     });
 
     // Sự kiện click mở Detail
@@ -317,28 +396,6 @@ function getReloadUrl() {
         updateBulkState();
     });
 
-    // Lấy danh sách id đã chọn
-    function getSelectedIds() {
-        const ids = [];
-        document.querySelectorAll('.js-chk-item:checked').forEach(el => {
-            const v = parseInt(el.value, 10);
-            if (!isNaN(v)) ids.push(v);
-        });
-        return ids;
-    }
-
-    // Cập nhật trạng thái nút Bulk + checkbox chọn tất cả
-    function updateBulkState() {
-        const total = document.querySelectorAll('.js-chk-item').length;
-        const checked = document.querySelectorAll('.js-chk-item:checked').length;
-
-        $('#btnBulkDelete').prop('disabled', checked === 0);
-
-        const $all = $('#chkSelectAll');
-        $all.prop('indeterminate', checked > 0 && checked < total);
-        $all.prop('checked', total > 0 && checked === total);
-    }
-
     // Mở modal xác nhận xóa nhiều
     $(document).on('click', '#btnBulkDelete', function (e) {
         e.preventDefault();
@@ -393,7 +450,7 @@ function getReloadUrl() {
             });
     });
 
-    // Phân trang: giữ lại bộ lọc hiện tại
+    // Phân trang
     $(document).on('click', '.pagination .page-link', function (e) {
         const href = this.getAttribute('href');
         if (!href || this.closest('.page-item')?.classList.contains('disabled')) return;
