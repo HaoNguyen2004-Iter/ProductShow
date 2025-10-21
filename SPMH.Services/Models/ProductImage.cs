@@ -4,6 +4,5 @@
     {
         public required string Url { get; init; }
         public string? Alt { get; init; }
-        public required string OriginalFileName { get; set; }
     }
 }

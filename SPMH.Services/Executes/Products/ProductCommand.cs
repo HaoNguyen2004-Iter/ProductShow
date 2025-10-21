@@ -49,6 +49,8 @@ namespace SPMH.Services.Executes.Products
             if (brandId == 0)
                 throw new InvalidOperationException("Thương hiệu không tồn tại");
 
+            var imageUrl = product.Url?.Trim();
+
             var entity = new Product
             {
                 Code = code,
@@ -58,7 +60,7 @@ namespace SPMH.Services.Executes.Products
                 Stock = product.Stock,
                 BrandId = brandId,
                 Status = product.Status == 0 ? 0 : 1, 
-                Url = "/uploads/products/sp1.jpg"
+                Url = imageUrl
             };
 
             _db.Products.Add(entity);

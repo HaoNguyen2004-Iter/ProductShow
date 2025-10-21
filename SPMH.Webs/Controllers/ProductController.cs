@@ -3,6 +3,7 @@ using SPMH.DBContext.Entities;
 using SPMH.Services.Executes;
 using SPMH.Services.Executes.Brands;
 using SPMH.Services.Executes.Products;
+using SPMH.Services.Executes.Storage;
 using SPMH.Services.Models;
 
 namespace SPMH.Webs.Controllers
@@ -13,13 +14,16 @@ namespace SPMH.Webs.Controllers
         private readonly ProductMany _productMany;
         private readonly ProductOne _productOne;
         private readonly BrandMany _brandMany;
+        private readonly ImageStorage _imageStorage;
 
-        public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany)
+
+        public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany, ImageStorage imageStorage )
         {
             _productCommand = productCommand;
             _productMany = productMany;
             _productOne = productOne;
             _brandMany = brandMany;
+            _imageStorage = imageStorage;
         }
         public async Task<IActionResult> Index(ProductFilter? filter, int page = 1, int pageSize = 5)
         {
@@ -153,6 +157,25 @@ namespace SPMH.Webs.Controllers
             else
                 return BadRequest(new { ok = false, error = "Lỗi khi xóa nhiều sản phẩm" });
 
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Upload(IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                    return BadRequest(new { ok = false, error = "Không thấy tệp để tải lên. " });
+                using var stream = file.OpenReadStream();
+                var saved = await _imageStorage.SaveProductImageAsync(stream, file.FileName);
+                return Ok(new { ok = true, url = saved.Url});
+            
+            }
+            catch (Exception ex)
+            {
+
+                return BadRequest(new {ok = false , error = ex.Message});
+            }
         }
     }
 }

@@ -26,8 +26,14 @@
 						<input type="checkbox" class="form-check-input js-chk-item" name="ids" value="@p.Id" />
 					</td>
 					<td>
-						<img src="@Url.Content(string.IsNullOrWhiteSpace(p.Url) ? "/uploads/products/sp1.jpg" : p.Url)"
-							 alt="@p.Name" style="width:100px;height:auto;object-fit:cover;border-radius:.5rem" />
+						@if (!string.IsNullOrWhiteSpace(p.Url))
+						{
+							<img src="@Url.Content(p.Url)" alt="@p.Name" style="width:100px;height:auto;object-fit:cover;border-radius:.5rem" />
+						}
+						else
+						{
+							<div class="text-muted small">No image</div>
+						}
 					</td>
 					<td><div class="fw-semibold">@p.Code</div><div>@p.Name</div></td>
 					<td>@p.Description</td>

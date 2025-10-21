@@ -18,7 +18,7 @@ function loadTable(url) {
             const msg = xhr.responseText || 'Có lỗi xảy ra khi tải bảng.';
             $wrap.html('<div class="alert alert-danger">' + msg + '</div>');
         });
-}   
+}
 function showTempAlert(message, type = 'success', ms = 2000) {
     const $alert = $('<div class="alert alert-' + type + ' position-fixed top-0 start-50 translate-middle-x mt-3 shadow" style="z-index:1080"></div>').text(message);
     $('body').append($alert);
@@ -36,8 +36,8 @@ function getReloadUrl() {
 
         const text = ($('#searchText').val() || '').trim();
         const brand = ($('#brandFilter').val() || '').trim();
-        const price = ($('#Price').val() || '').trim();     
-        const stock = ($('#Stock').val() || '').trim();     
+        const price = ($('#Price').val() || '').trim();
+        const stock = ($('#Stock').val() || '').trim();
         const stRaw = ($('#statusFilter').val() || '').trim();
 
         const params = new URLSearchParams();
@@ -52,7 +52,7 @@ function getReloadUrl() {
 
         if (stRaw === 'active') params.append('status', '1');
         else if (stRaw === 'inactive') params.append('status', '0');
-        
+
         return params.toString();
     }
     function buildSearchUrl(base = '/Product/Index') {
@@ -166,33 +166,67 @@ function getReloadUrl() {
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
         const $btn = $(this).prop('disabled', true);
 
-        $.ajax({
-            url: url,
-            method: 'POST',
-            data: JSON.stringify(payload),
-            contentType: 'application/json; charset=utf-8',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-            .done(function (res) {
-                const $modal = $('#modalOpen');
-                const modal = bootstrap.Modal.getInstance($modal[0]);
-                if (modal) modal.hide();
+        const fileInput = $wrap.find('input[name="ProductImage"]');
+        const file = fileInput && fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
 
-                const msg = (res && (res.message || res.error)) || 'Lưu thành công';
-                showTempAlert(msg, 'success');
-                // Giữ bộ lọc hiện tại sau khi lưu
-                loadTable(buildSearchUrl());
+        function saveProduct() {
+            $.ajax({
+                url: url,
+                method: 'POST',
+                data: JSON.stringify(payload),
+                contentType: 'application/json; charset=utf-8',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .fail(function (xhr) {
-                const res = xhr.responseJSON;
-                const msg = (res && res.error) || xhr.responseText || 'Lỗi khi lưu sản phẩm';
-                $('#modalBody').find('.alert').remove();
-                $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + msg + '</div>');
-                $('#modalBody').scrollTop(0);
+                .done(function (res) {
+                    const $modal = $('#modalOpen');
+                    const modal = bootstrap.Modal.getInstance($modal[0]);
+                    if (modal) modal.hide();
+
+                    const msg = (res && (res.message || res.error)) || 'Lưu thành công';
+                    showTempAlert(msg, 'success');
+                    // Giữ bộ lọc hiện tại sau khi lưu
+                    loadTable(buildSearchUrl());
+                })
+                .fail(function (xhr) {
+                    const res = xhr.responseJSON;
+                    const msg = (res && res.error) || xhr.responseText || 'Lỗi khi lưu sản phẩm';
+                    $('#modalBody').find('.alert').remove();
+                    $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + msg + '</div>');
+                    $('#modalBody').scrollTop(0);
+                })
+                .always(function () {
+                    $btn.prop('disabled', false);
+                });
+        }
+        if (file) {
+            const fd = new FormData();
+            fd.append('file', file);
+            $.ajax({
+                url: '/Product/Upload',
+                method: 'POST',
+                data: fd,
+                processData: false,
+                contentType: false,
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .always(function () {
-                $btn.prop('disabled', false);
-            });
+                .done(function (res) {
+                    if (res && res.ok && res.url) {
+                        payload.Url = res.url;
+                    }
+                    saveProduct();
+                })
+                .fail(function (xhr) {
+                    const res = xhr.responseJSON;
+                    const msg = (res && res.error) || xhr.responseText || 'Tải ảnh thất bại';
+                    $('#modalBody').find('.alert').remove();
+                    $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + msg + '</div>');
+                    $('#modalBody').scrollTop(0);
+                    $btn.prop('disabled', false);
+                });
+        } else {
+            saveProduct()
+        }
+
     });
 
     // Sự kiện click mở Detail
