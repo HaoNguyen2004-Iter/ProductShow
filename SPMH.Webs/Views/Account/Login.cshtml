@@ -1,0 +1,86 @@
+﻿@{
+    Layout = "_Layout";
+    ViewData["Title"] = "Đăng nhập";
+}
+
+<div class="container-fluid bg-body-tertiary">
+    <div class="container py-5">
+        <div class="row justify-content-center align-items-center min-vh-100">
+            <div class="col-12 col-lg-7 col-xl-6">
+                <div class="card border-0 shadow-lg rounded-5 overflow-hidden">
+                    <!-- Banner -->
+                    <div class="bg-primary bg-gradient text-white p-4">
+                        <div class="d-flex align-items-center">
+                            <div>
+                                <h1 class="h2 fw-bold mb-1">Chào mừng trở lại</h1>
+                                <p class="mb-0 text-white-50">Đăng nhập để truy cập bảng điều khiển</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Form -->
+                    <div class="card-body p-4 p-lg-5">
+                        <h2 class="fw-bold text-primary mb-4 text-center">Đăng nhập</h2>
+
+                        <form asp-action="Login" method="post" autocomplete="on">
+                            <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
+
+                            <!-- Username -->
+                            <div class="mb-3">
+                                <label for="username" class="form-label fw-medium">Tên đăng nhập</label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text" id="addon-user" aria-hidden="true">👤</span>
+                                    <input type="text"
+                                           class="form-control"
+                                           id="username"
+                                           name="Username"
+                                           placeholder="vd: admin"
+                                           aria-describedby="addon-user"
+                                           required
+                                           autocomplete="username" />
+                                </div>
+                            </div>
+
+                            <!-- Password -->
+                            <div class="mb-3">
+                                <label for="password" class="form-label fw-medium">Mật khẩu</label>
+                                <div class="input-group input-group-lg">
+                                    <span class="input-group-text" id="addon-pass" aria-hidden="true">🔒</span>
+                                    <input type="password"
+                                           class="form-control"
+                                           id="password"
+                                           name="Password"
+                                           placeholder="Nhập mật khẩu"
+                                           aria-describedby="addon-pass"
+                                           required
+                                           autocomplete="current-password" />
+                                </div>
+                            </div>
+
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="rememberMe" name="RememberMe">
+                                    <label class="form-check-label" for="rememberMe">Ghi nhớ đăng nhập</label>
+                                </div>
+                                <a href="#" class="link-secondary">Quên mật khẩu?</a>
+                            </div>
+
+                            <div class="d-grid gap-3">
+                                <button id="btnLogin" class="btn btn-primary btn-lg fw-semibold py-3">
+                                    Đăng nhập
+                                </button>
+                                <a href="/" class="btn btn-outline-secondary btn-lg py-3">Quay về trang chủ</a>
+                            </div>
+
+                            <hr class="my-4">
+                        </form>
+                    </div>
+                </div>
+
+                <div class="text-center text-muted small mt-3">
+                    © @DateTime.Now.Year – Your Company
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

@@ -96,6 +96,12 @@ function updateBulkState() {
 }
 
 (function ($) {
+
+    $(document).on('click', '#btnLogin', function (e) {
+        e.preventDefault();
+        window.location.href = '/Product/Index';
+    });
+
     let isComposing = false;
     // Kiểm tra nhập liệu
     $(document).on('compositionstart', '#searchText', function () {
@@ -305,6 +311,7 @@ function updateBulkState() {
                 url: '/Product/Upload',
                 method: 'POST',
                 data: fd,
+                //Không cho hiện đường dẫn
                 processData: false,
                 contentType: false,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
