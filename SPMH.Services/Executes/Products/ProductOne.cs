@@ -23,7 +23,11 @@ namespace SPMH.Services.Executes.Products
                     p.Stock,
                     p.Status,
                     p.Description,
-                    p.Url ?? string.Empty))
+                    p.Url ?? string.Empty,
+                    p.CreateBy,
+                    p.CreateDate,
+                    p.UpdateBy,
+                    p.LastUpdateDay))
                 .FirstOrDefaultAsync();
 
             if (product == null)

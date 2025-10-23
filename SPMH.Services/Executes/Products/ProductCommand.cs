@@ -24,18 +24,12 @@ namespace SPMH.Services.Executes.Products
             var brandName = (product.BrandName ?? string.Empty).Trim();
             var description = product.Description?.Trim();
 
-            if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("Mã sản phẩm không được để trống.");
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("Tên sản phẩm không được để trống.");
-            if (string.IsNullOrWhiteSpace(brandName))
-                throw new ArgumentException("Thương hiệu không được để trống.");
-            if (string.IsNullOrWhiteSpace(description))
-                throw new ArgumentException("Mô tả sản phẩm không được để trống.");
-            if (product.PriceVnd < 0)
-                throw new ArgumentException("Giá sản phẩm không hợp lệ");
-            if (product.Stock < 0)
-                throw new ArgumentException("Số lượng kho sản phẩm không hợp lệ");
+            if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Mã sản phẩm không được để trống.");
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Tên sản phẩm không được để trống.");
+            if (string.IsNullOrWhiteSpace(brandName)) throw new ArgumentException("Thương hiệu không được để trống.");
+            if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Mô tả sản phẩm không được để trống.");
+            if (product.PriceVnd < 0) throw new ArgumentException("Giá sản phẩm không hợp lệ");
+            if (product.Stock < 0) throw new ArgumentException("Số lượng kho sản phẩm không hợp lệ");
 
             var normCode = code.ToLower();
             var normName = name.ToLower();
@@ -43,17 +37,28 @@ namespace SPMH.Services.Executes.Products
             var exists = await _db.Products.AnyAsync(p =>
                 p.Status == 1 &&
                 (p.Code.ToLower() == normCode || p.Name.ToLower() == normName));
-            if (exists)
-                throw new InvalidOperationException("Sản phẩm đã tồn tại");
+            if (exists) throw new InvalidOperationException("Sản phẩm đã tồn tại");
 
             var normBrand = brandName.ToLower();
             var brandId = await _db.Brands.AsNoTracking()
                 .Where(b => b.Name.ToLower() == normBrand)
                 .Select(b => b.Id)
                 .FirstOrDefaultAsync();
-            if (brandId == 0)
-                throw new InvalidOperationException("Thương hiệu không tồn tại");
+            if (brandId == 0) throw new InvalidOperationException("Thương hiệu không tồn tại");
 
+            // Resolve valid account ids
+            var anyAccountId = await _db.Accounts.AsNoTracking().Select(a => a.Id).FirstOrDefaultAsync();
+            if (anyAccountId == 0) throw new InvalidOperationException("Không tìm thấy tài khoản hợp lệ.");
+
+            var createBy = product.CreateBy > 0 &&
+                           await _db.Accounts.AsNoTracking().AnyAsync(a => a.Id == product.CreateBy)
+                           ? product.CreateBy : anyAccountId;
+
+            var updateBy = product.UpdateBy > 0 &&
+                           await _db.Accounts.AsNoTracking().AnyAsync(a => a.Id == product.UpdateBy)
+                           ? product.UpdateBy : createBy;
+
+            var now = DateTime.UtcNow;
             var imageUrl = product.Url?.Trim();
 
             var entity = new Product
@@ -64,8 +69,12 @@ namespace SPMH.Services.Executes.Products
                 PriceVnd = product.PriceVnd,
                 Stock = product.Stock,
                 BrandId = brandId,
-                Status = product.Status == 0 ? 0 : 1, 
-                Url = imageUrl
+                Status = product.Status == 0 ? 0 : 1,
+                Url = imageUrl,
+                CreateBy = createBy,
+                CreateDate = now,
+                UpdateBy = updateBy,
+                LastUpdateDay = now
             };
 
             _db.Products.Add(entity);
@@ -79,6 +88,7 @@ namespace SPMH.Services.Executes.Products
             if (entity == null) return false;
 
             entity.Status = -1;
+            entity.LastUpdateDay = DateTime.UtcNow;
             await _db.SaveChangesAsync();
             return true;
         }
@@ -92,18 +102,12 @@ namespace SPMH.Services.Executes.Products
             var brandName = (product.BrandName ?? string.Empty).Trim();
             var description = product.Description?.Trim();
 
-            if (string.IsNullOrWhiteSpace(code))
-                throw new ArgumentException("Mã sản phẩm không được để trống.");
-            if (string.IsNullOrWhiteSpace(name))
-                throw new ArgumentException("Tên sản phẩm không được để trống.");
-            if (string.IsNullOrWhiteSpace(brandName))
-                throw new ArgumentException("Thương hiệu không được để trống.");
-            if (string.IsNullOrWhiteSpace(description))
-                throw new ArgumentException("Mô tả sản phẩm không được để trống.");
-            if (product.PriceVnd < 0)
-                throw new ArgumentException("Giá sản phẩm không hợp lệ");
-            if (product.Stock < 0)
-                throw new ArgumentException("Số lượng kho sản phẩm không hợp lệ");
+            if (string.IsNullOrWhiteSpace(code)) throw new ArgumentException("Mã sản phẩm không được để trống.");
+            if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Tên sản phẩm không được để trống.");
+            if (string.IsNullOrWhiteSpace(brandName)) throw new ArgumentException("Thương hiệu không được để trống.");
+            if (string.IsNullOrWhiteSpace(description)) throw new ArgumentException("Mô tả sản phẩm không được để trống.");
+            if (product.PriceVnd < 0) throw new ArgumentException("Giá sản phẩm không hợp lệ");
+            if (product.Stock < 0) throw new ArgumentException("Số lượng kho sản phẩm không hợp lệ");
 
             var normCode = code.ToLower();
             var normName = name.ToLower();
@@ -112,20 +116,17 @@ namespace SPMH.Services.Executes.Products
                 p.Status >= 0 &&
                 p.Id != product.Id &&
                 (p.Code.ToLower() == normCode || p.Name.ToLower() == normName));
-            if (duplicate)
-                throw new InvalidOperationException("Mã hoặc tên sản phẩm đã tồn tại");
+            if (duplicate) throw new InvalidOperationException("Mã hoặc tên sản phẩm đã tồn tại");
 
             var normBrand = brandName.ToLower();
             var brandId = await _db.Brands.AsNoTracking()
                 .Where(b => b.Name.ToLower() == normBrand)
                 .Select(b => b.Id)
                 .FirstOrDefaultAsync();
-            if (brandId == 0)
-                throw new InvalidOperationException("Thương hiệu không tồn tại");
+            if (brandId == 0) throw new InvalidOperationException("Thương hiệu không tồn tại");
 
             var entity = await _db.Products.FirstOrDefaultAsync(p => p.Id == product.Id);
-            if (entity == null)
-                throw new InvalidOperationException("Sản phẩm không tồn tại");
+            if (entity == null) throw new InvalidOperationException("Sản phẩm không tồn tại");
 
             entity.Code = code;
             entity.Name = name;
@@ -137,6 +138,14 @@ namespace SPMH.Services.Executes.Products
 
             if (!string.IsNullOrWhiteSpace(product.Url))
                 entity.Url = product.Url.Trim();
+
+            // Update audit safely
+            if (product.UpdateBy > 0 &&
+                await _db.Accounts.AsNoTracking().AnyAsync(a => a.Id == product.UpdateBy))
+            {
+                entity.UpdateBy = product.UpdateBy;
+            }
+            entity.LastUpdateDay = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
             return true;

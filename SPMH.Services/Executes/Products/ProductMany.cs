@@ -27,7 +27,7 @@ namespace SPMH.Services.Executes.Products
             }
 
             BadInput.EnsureSafe(filter);
-          
+
             string? term = null;
             if (!string.IsNullOrWhiteSpace(filter?.Name)) term = filter!.Name.Trim();
             else if (!string.IsNullOrWhiteSpace(filter?.Code)) term = filter!.Code.Trim();
@@ -53,7 +53,11 @@ namespace SPMH.Services.Executes.Products
                         p.Stock,
                         p.Status,
                         p.Description,
-                        p.Url ?? string.Empty))
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay))
                     .ToListAsync();
 
                 return new PagedResult<ProductModel>(items0, total0, page, pageSize);
@@ -93,7 +97,12 @@ namespace SPMH.Services.Executes.Products
                         p.Stock,
                         p.Status,
                         p.Description,
-                        p.Url ?? string.Empty))
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay
+                        ))
                     .ToListAsync();
             }
 
@@ -120,7 +129,11 @@ namespace SPMH.Services.Executes.Products
                         p.Stock,
                         p.Status,
                         p.Description,
-                        p.Url ?? string.Empty))
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay))
                     .ToListAsync();
             }
 

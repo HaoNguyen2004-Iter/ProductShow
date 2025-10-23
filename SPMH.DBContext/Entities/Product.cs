@@ -15,12 +15,12 @@ namespace SPMH.DBContext.Entities
         public string? Url { get; set; }
 
         public int CreateBy { get; set; }
+        public DateTime CreateDate { get; set; }
         public Account CreateByAccount { get; set; } = default!;
 
         public int UpdateBy { get; set; }
         public Account UpdateByAccount { get; set; } = default!;
 
-        public DateTime LastCreateDay { get; set; }
-        public DateTime UpdateDay { get; set; }
+        public DateTime LastUpdateDay { get; set; }
     }
 }
