@@ -5,6 +5,7 @@ using SPMH.Services.Executes;
 using SPMH.Services.Executes.Brands;
 using SPMH.Services.Executes.Products;
 using SPMH.Services.Executes.Storage;
+using SPMH.Services.Executes.Accounts;
 using SPMH.Services.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,6 +29,7 @@ builder.Services.AddScoped<ProductModel>();
 builder.Services.AddScoped<ProductOne>();
 builder.Services.AddScoped<BrandMany>();
 builder.Services.AddScoped<BrandModel>();
+builder.Services.AddScoped<AccountModel>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
