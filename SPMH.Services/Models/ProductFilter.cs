@@ -1,5 +1,4 @@
 ﻿
-
 namespace SPMH.Services.Models
 {
     public sealed class ProductFilter

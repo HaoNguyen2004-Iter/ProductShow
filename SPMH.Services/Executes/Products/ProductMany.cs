@@ -4,6 +4,7 @@ using SPMH.DBContext;
 using SPMH.DBContext.Entities;
 using SPMH.Services.Models;
 
+
 namespace SPMH.Services.Executes.Products
 {
     public class ProductMany
@@ -25,6 +26,8 @@ namespace SPMH.Services.Executes.Products
                 baseQuery = ApplyFilterWithoutKeyword(baseQuery, filter);
             }
 
+            BadInput.EnsureSafe(filter);
+          
             string? term = null;
             if (!string.IsNullOrWhiteSpace(filter?.Name)) term = filter!.Name.Trim();
             else if (!string.IsNullOrWhiteSpace(filter?.Code)) term = filter!.Code.Trim();

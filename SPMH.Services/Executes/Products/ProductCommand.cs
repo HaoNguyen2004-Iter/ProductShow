@@ -14,6 +14,11 @@ namespace SPMH.Services.Executes.Products
         {
             if (product == null) throw new ArgumentNullException(nameof(product));
 
+            BadInput.EnsureSafe(product.Name);
+            BadInput.EnsureSafe(product.BrandName);
+            BadInput.EnsureSafe(product.Code);
+            BadInput.EnsureSafe(product.Description);
+
             var code = (product.Code ?? string.Empty).Trim();
             var name = (product.Name ?? string.Empty).Trim();
             var brandName = (product.BrandName ?? string.Empty).Trim();

@@ -1,6 +1,10 @@
 ﻿const loadingHtml = '<div class="d-flex justify-content-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
 const tableSel = '#productTableWrap';
+const badString = /\b(?:CREATE|DROP|ALTER|TRUNCATE|RENAME|INSERT|UPDATE|DELETE|MERGE|UPSERT|BULK\s+INSERT|COPY|KILL|SHUTDOWN|UNION|ALL|SELECT)\b/i;
 
+function hasBadString(value) {
+    return badString.test(value)
+}
 function debounce(fn, ms) {
     let t;
     return function () {
@@ -104,6 +108,13 @@ function updateBulkState() {
 
     // Submit form tìm kiếm => load lại bảng
     $(document).on('submit', '#searchForm', function (e) {
+        const text = ($('#searchText').val() || '').toString();
+
+        if (hasBadString(text)) {
+            e.preventDefault();
+            showTempAlert('Định làm cái trò gì vậy ?', 'warning');
+            return;
+        }
         e.preventDefault();
         loadTable(buildSearchUrl());
     });
@@ -242,6 +253,16 @@ function updateBulkState() {
             Status: readChecked('Status') ? 1 : 0
         };
 
+        const badFields = [];
+        if (hasBadString(payload.Code)) badFields.push('Mã sản phẩm');
+        if (hasBadString(payload.Name)) badFields.push('Tên sản phẩm');
+        if (hasBadString(payload.BrandName)) badFields.push('Thương hiệu');
+        if (hasBadString(payload.Description)) badFields.push('Mô tả');
+
+        if (badFields.length) {
+            showTempAlert('Định làm cái trò gì vậy? ', 'warning');
+            return;
+        }
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
         const $btn = $(this).prop('disabled', true);
 

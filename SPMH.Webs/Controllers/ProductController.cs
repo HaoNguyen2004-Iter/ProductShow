@@ -16,7 +16,6 @@ namespace SPMH.Webs.Controllers
         private readonly BrandMany _brandMany;
         private readonly ImageStorage _imageStorage;
 
-
         public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany, ImageStorage imageStorage )
         {
             _productCommand = productCommand;
