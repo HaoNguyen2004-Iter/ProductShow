@@ -21,8 +21,7 @@
                     <!-- Form -->
                     <div class="card-body p-4 p-lg-5">
                         <h2 class="fw-bold text-primary mb-4 text-center">Đăng nhập</h2>
-
-                        <form asp-action="Login" method="post" autocomplete="on">
+                        <div asp-action="Login" method="post" autocomplete="on" id="LoginForm">
                             <div asp-validation-summary="ModelOnly" class="text-danger small mb-3"></div>
 
                             <!-- Username -->
@@ -73,7 +72,7 @@
                             </div>
 
                             <hr class="my-4">
-                        </form>
+                        </div>
                     </div>
                 </div>
 

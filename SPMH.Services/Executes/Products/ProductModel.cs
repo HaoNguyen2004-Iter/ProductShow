@@ -3,25 +3,23 @@
     public class ProductModel
     {
         public int Id { get; set; }
-
         public string Code { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
-
         public int BrandId { get; set; }
         public string BrandName { get; set; } = string.Empty;
-
         public decimal PriceVnd { get; set; }
         public int Stock { get; set; }
         public int Status { get; set; } = 1;
-
         public string? Description { get; set; }
         public string? Url { get; set; }
-
-        // Audit fields matching Product entity
         public int CreateBy { get; set; }
         public DateTime CreateDate { get; set; }
         public int UpdateBy { get; set; }
         public DateTime LastUpdateDay { get; set; }
+
+        // NEW: hiển thị tên người tạo/sửa
+        public string CreateByName { get; set; } = string.Empty;
+        public string UpdateByName { get; set; } = string.Empty;
 
         public ProductModel() { }
 
@@ -51,7 +49,6 @@
             Status = status;
             Description = description;
             Url = url;
-
             CreateBy = createBy;
             CreateDate = createDate ?? default;
             UpdateBy = updateBy;

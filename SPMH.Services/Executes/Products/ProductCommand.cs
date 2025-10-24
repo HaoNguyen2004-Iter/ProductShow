@@ -14,11 +14,11 @@ namespace SPMH.Services.Executes.Products
         {
             if (product == null) throw new ArgumentNullException(nameof(product));
 
-            BadInput.EnsureSafe(product.Name);
-            BadInput.EnsureSafe(product.BrandName);
-            BadInput.EnsureSafe(product.Code);
-            BadInput.EnsureSafe(product.Description);
-
+            if(BadInput.hasBadInput(product.Name)) throw new ArgumentException("Đầu vào không hợp lệ");
+            if(BadInput.hasBadInput(product.BrandName)) throw new ArgumentException("Đầu vào không hợp lệ");
+            if(BadInput.hasBadInput(product.Code)) throw new ArgumentException("Đầu vào không hợp lệ");
+            if(BadInput.hasBadInput(product.Description)) throw new ArgumentException("Đầu vào không hợp lệ");
+            
             var code = (product.Code ?? string.Empty).Trim();
             var name = (product.Name ?? string.Empty).Trim();
             var brandName = (product.BrandName ?? string.Empty).Trim();
@@ -46,7 +46,6 @@ namespace SPMH.Services.Executes.Products
                 .FirstOrDefaultAsync();
             if (brandId == 0) throw new InvalidOperationException("Thương hiệu không tồn tại");
 
-            // Resolve valid account ids
             var anyAccountId = await _db.Accounts.AsNoTracking().Select(a => a.Id).FirstOrDefaultAsync();
             if (anyAccountId == 0) throw new InvalidOperationException("Không tìm thấy tài khoản hợp lệ.");
 
@@ -58,7 +57,7 @@ namespace SPMH.Services.Executes.Products
                            await _db.Accounts.AsNoTracking().AnyAsync(a => a.Id == product.UpdateBy)
                            ? product.UpdateBy : createBy;
 
-            var now = DateTime.UtcNow;
+            var now = DateTime.Now;
             var imageUrl = product.Url?.Trim();
 
             var entity = new Product
@@ -71,9 +70,9 @@ namespace SPMH.Services.Executes.Products
                 BrandId = brandId,
                 Status = product.Status == 0 ? 0 : 1,
                 Url = imageUrl,
-                CreateBy = createBy,
+                CreateBy = 1,
                 CreateDate = now,
-                UpdateBy = updateBy,
+                UpdateBy = 1,
                 LastUpdateDay = now
             };
 
@@ -139,13 +138,12 @@ namespace SPMH.Services.Executes.Products
             if (!string.IsNullOrWhiteSpace(product.Url))
                 entity.Url = product.Url.Trim();
 
-            // Update audit safely
             if (product.UpdateBy > 0 &&
                 await _db.Accounts.AsNoTracking().AnyAsync(a => a.Id == product.UpdateBy))
             {
                 entity.UpdateBy = product.UpdateBy;
             }
-            entity.LastUpdateDay = DateTime.UtcNow;
+            entity.LastUpdateDay = DateTime.Now;
 
             await _db.SaveChangesAsync();
             return true;

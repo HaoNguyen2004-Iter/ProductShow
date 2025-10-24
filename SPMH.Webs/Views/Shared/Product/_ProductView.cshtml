@@ -45,6 +45,22 @@
 							<label class="form-label fw-bold">Tồn kho</label>
 							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.Stock.ToString("#,0")</div>
 						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Người tạo</label>
+							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.CreateByName.ToString()</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Ngày tạo</label>
+							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.CreateDate</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Người sửa gần nhất</label>
+							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.UpdateByName.ToString()</div>
+						</div>
+						<div class="col-md-6">
+							<label class="form-label fw-bold">Ngày sửa gần nhất</label>
+							<div class="form-control-plaintext text-primary-emphasis fw-bold">@Model.LastUpdateDay</div>
+						</div>
 						<div class="col-12">
 							<label class="form-label fw-bold">Mô tả</label>
 							<div class="form-control-plaintext">@Model.Description</div>

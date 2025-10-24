@@ -30,6 +30,7 @@ builder.Services.AddScoped<ProductOne>();
 builder.Services.AddScoped<BrandMany>();
 builder.Services.AddScoped<BrandModel>();
 builder.Services.AddScoped<AccountModel>();
+builder.Services.AddScoped<AccountOne>();
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();

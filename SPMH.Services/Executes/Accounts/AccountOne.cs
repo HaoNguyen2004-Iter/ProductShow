@@ -12,15 +12,15 @@ namespace SPMH.Services.Executes.Accounts
         public async Task<bool> Login(AccountModel account)
         {
 
-            BadInput.EnsureSafe(account.Username);
-            BadInput.EnsureSafe(account.Password);
+            if (BadInput.hasBadInput(account.Username)) throw new ArgumentException("Đầu vào không hợp lệ");
+            if (BadInput.hasBadInput(account.Password)) throw new ArgumentException("Đầu vào không hợp lệ");
 
             var hasAccount = await _db.Accounts.AsNoTracking()
                 .Where(p => p.Username == account.Username && p.Password == account.Password)
                 .AnyAsync();
 
             if (!hasAccount)
-                throw new ArgumentException("Tài khoản không tồn tại");
+                return false;
             return true;
         }
     }

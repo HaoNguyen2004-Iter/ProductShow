@@ -17,6 +17,16 @@ namespace SPMH.Services.Executes.Products
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 5;
 
+            if (filter != null)
+            {
+                if (!string.IsNullOrEmpty(filter.Name) && BadInput.hasBadInput(filter.Name))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+                if (!string.IsNullOrEmpty(filter.Brand) && BadInput.hasBadInput(filter.Brand))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+                if (!string.IsNullOrEmpty(filter.Code) && BadInput.hasBadInput(filter.Code))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+            }
+
             var baseQuery = _db.Products
                 .AsNoTracking()
                 .Where(p => p.Status >= 0);
@@ -25,8 +35,6 @@ namespace SPMH.Services.Executes.Products
             {
                 baseQuery = ApplyFilterWithoutKeyword(baseQuery, filter);
             }
-
-            BadInput.EnsureSafe(filter);
 
             string? term = null;
             if (!string.IsNullOrWhiteSpace(filter?.Name)) term = filter!.Name.Trim();

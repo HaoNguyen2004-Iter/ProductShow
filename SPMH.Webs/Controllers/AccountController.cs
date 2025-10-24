@@ -15,12 +15,19 @@ namespace SPMH.Webs.Controllers
     public class AccountController : Controller
     {
         private readonly AccountOne _accountOne;
+        public AccountController(AccountOne accountOne)
+        {
+            _accountOne = accountOne;
+        }
+
+        [HttpGet]
         public IActionResult Login()
         {
             return View();
         }
 
-        public async Task<IActionResult> Login(AccountModel account)
+        [HttpPost]
+        public async Task<IActionResult> Login([FromForm] AccountModel account)
         {
             if (String.IsNullOrEmpty(account.Username) || String.IsNullOrEmpty(account.Password))
                 return BadRequest("Username hoặc Password không được trống!");

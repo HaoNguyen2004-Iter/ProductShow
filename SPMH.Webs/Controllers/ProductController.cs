@@ -16,7 +16,7 @@ namespace SPMH.Webs.Controllers
         private readonly BrandMany _brandMany;
         private readonly ImageStorage _imageStorage;
 
-        public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany, ImageStorage imageStorage )
+        public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany, ImageStorage imageStorage)
         {
             _productCommand = productCommand;
             _productMany = productMany;
@@ -26,19 +26,28 @@ namespace SPMH.Webs.Controllers
         }
         public async Task<IActionResult> Index(ProductFilter? filter, int page = 1, int pageSize = 4)
         {
-            var products = await _productMany.GetPagedAsync(page, pageSize, filter);
 
-            if (Request.Headers["X-Requested-With"] != "XMLHttpRequest")
+            try
             {
-                ViewBag.Brands = await _brandMany.GetAllBrandAsync();
-            }
+                var products = await _productMany.GetPagedAsync(page, pageSize, filter);
 
-            if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                if (Request.Headers["X-Requested-With"] != "XMLHttpRequest")
+                {
+                    ViewBag.Brands = await _brandMany.GetAllBrandAsync();
+                }
+
+                if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
+                {
+                    return PartialView("~/Views/Shared/Product/_ProductTable.cshtml", products);
+                } 
+                return View(products);
+
+            }
+            catch (Exception ex)
             {
-                return PartialView("~/Views/Shared/Product/_ProductTable.cshtml", products);
-            }
 
-            return View(products);
+                return BadRequest(ex.Message);
+            }
         }
 
         [HttpGet]
@@ -89,7 +98,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -167,13 +176,13 @@ namespace SPMH.Webs.Controllers
                     return BadRequest(new { ok = false, error = "Không thấy tệp để tải lên. " });
                 using var stream = file.OpenReadStream();
                 var saved = await _imageStorage.SaveProductImageAsync(stream, file.FileName);
-                return Ok(new { ok = true, url = saved.Url});
-            
+                return Ok(new { ok = true, url = saved.Url });
+
             }
             catch (Exception ex)
             {
 
-                return BadRequest(new {ok = false , error = ex.Message});
+                return BadRequest(new { ok = false, error = ex.Message });
             }
         }
     }

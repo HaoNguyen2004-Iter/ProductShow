@@ -17,7 +17,13 @@ namespace SPMH.DBContext
         {
             modelBuilder.Entity<Product>(entity =>
             {
-                entity.ToTable("Products");
+                entity.ToTable("Products", tb =>
+                {
+                    tb.HasTrigger("TR_Products_Insert");
+                    tb.HasTrigger("TR_Products_Update");
+                    tb.HasTrigger("TR_Products_Delete");
+                });
+
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Code).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.Name).IsRequired().HasMaxLength(200);
@@ -32,14 +38,12 @@ namespace SPMH.DBContext
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK_Products_Brands_BrandId");
 
-                // FK CreateBy -> Accounts(Id)
                 entity.HasOne(d => d.CreateByAccount)
                     .WithMany()
                     .HasForeignKey(d => d.CreateBy)
                     .OnDelete(DeleteBehavior.ClientSetNull)
                     .HasConstraintName("FK_Products_Accounts_CreateBy");
 
-                // FK UpdateBy -> Accounts(Id)
                 entity.HasOne(d => d.UpdateByAccount)
                     .WithMany()
                     .HasForeignKey(d => d.UpdateBy)

@@ -1,7 +1,5 @@
 ﻿const loadingHtml = '<div class="d-flex justify-content-center py-5"><div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div></div>';
 const tableSel = '#productTableWrap';
-const badString = /\b(?:CREATE|DROP|ALTER|TRUNCATE|RENAME|INSERT|UPDATE|DELETE|MERGE|UPSERT|BULK\s+INSERT|COPY|KILL|SHUTDOWN|UNION|ALL|SELECT)\b/i;
-
 function hasBadString(value) {
     return badString.test(value)
 }
@@ -13,7 +11,6 @@ function debounce(fn, ms) {
         t = setTimeout(() => fn.apply(ctx, args), ms);
     };
 }
-
 function buildSearchQuery() {
     const $form = $('#searchForm');
     if ($form.length === 0) return '';
@@ -96,10 +93,44 @@ function updateBulkState() {
 }
 
 (function ($) {
-
+    // Đăng nhập
     $(document).on('click', '#btnLogin', function (e) {
         e.preventDefault();
-        window.location.href = '/Product/Index';
+        const $wrap = $('#LoginForm');
+        const f = Spmh.fields.reader($wrap); 
+
+        const $btn = $(this);
+        const username = f.read('Username').toString().trim();
+        const password = f.read('Password').toString().trim();
+
+        if (!username || !password) {
+            showTempAlert('Vui lòng nhập Tên đăng nhập và Mật khẩu.', 'warning');
+            return;
+        }
+
+        const payload = { Username: username, Password: password };
+
+        const originalHtml = $btn.html();
+        $btn.prop('disabled', true).html('Đang đăng nhập...');
+
+        $.ajax({
+            url: '/Account/Login',
+            method: 'POST',
+            data: payload, 
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .done(function (xhr) {
+                const redirectUrl = (xhr && xhr.responseURL) || '/Product/Index';
+                window.location.assign(redirectUrl);
+            })
+            .fail(function (xhr) {
+                const res = xhr.responseJSON;
+                const msg = (res && (res.error || res.message)) || xhr.responseText || 'Đăng nhập thất bại';
+                showTempAlert(msg, 'danger', 3000);
+            })
+            .always(function () {
+                $btn.prop('disabled', false).html(originalHtml);
+            });
     });
 
     let isComposing = false;
@@ -115,12 +146,6 @@ function updateBulkState() {
     // Submit form tìm kiếm => load lại bảng
     $(document).on('submit', '#searchForm', function (e) {
         const text = ($('#searchText').val() || '').toString();
-
-        if (hasBadString(text)) {
-            e.preventDefault();
-            showTempAlert('Định làm cái trò gì vậy ?', 'warning');
-            return;
-        }
         e.preventDefault();
         loadTable(buildSearchUrl());
     });
@@ -237,38 +262,23 @@ function updateBulkState() {
         const $wrap = $('#productForm');
         if ($wrap.length === 0) return;
 
+        const f = Spmh.fields.reader($wrap);
         const mode = $wrap.data('mode');
         const id = Number($wrap.data('id') || 0);
 
-        const read = (name) => ($wrap.find('[name="' + name + '"]').val() || '').toString().trim();
-        const readNumber = (name) => {
-            const v = $wrap.find('[name="' + name + '"]').val();
-            return v === '' || v == null ? 0 : Number(v);
-        };
-        const readChecked = (name) => $wrap.find('[name="' + name + '"]').is(':checked');
-
         const payload = {
             Id: id,
-            Code: read('Code'),
-            Name: read('Name'),
-            BrandName: read('BrandName'),
-            PriceVnd: readNumber('PriceVnd'),
-            Stock: readNumber('Stock'),
-            Description: read('Description'),
+            Code: f.read('Code'),
+            Name: f.read('Name'),
+            BrandName: f.read('BrandName'),
+            PriceVnd: f.readNumber('PriceVnd'),
+            Stock: f.readNumber('Stock'),
+            Description: f.read('Description'),
             Url: '',
-            Status: readChecked('Status') ? 1 : 0
+            Status: f.readChecked('Status') ? 1 : 0
         };
 
-        const badFields = [];
-        if (hasBadString(payload.Code)) badFields.push('Mã sản phẩm');
-        if (hasBadString(payload.Name)) badFields.push('Tên sản phẩm');
-        if (hasBadString(payload.BrandName)) badFields.push('Thương hiệu');
-        if (hasBadString(payload.Description)) badFields.push('Mô tả');
-
-        if (badFields.length) {
-            showTempAlert('Định làm cái trò gì vậy? ', 'warning');
-            return;
-        }
+      
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
         const $btn = $(this).prop('disabled', true);
 
@@ -294,7 +304,7 @@ function updateBulkState() {
                 })
                 .fail(function (xhr) {
                     const res = xhr.responseJSON;
-                    const msg = (res && res.error) || xhr.responseText || 'Lỗi khi lưu sản phẩm';
+                    const msg = (res && res.error) || xhr.responseText;
                     $('#modalBody').find('.alert').remove();
                     $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + msg + '</div>');
                     $('#modalBody').scrollTop(0);
@@ -311,7 +321,6 @@ function updateBulkState() {
                 url: '/Product/Upload',
                 method: 'POST',
                 data: fd,
-                //Không cho hiện đường dẫn
                 processData: false,
                 contentType: false,
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
