@@ -24,7 +24,7 @@ namespace SPMH.Webs.Controllers
             _brandMany = brandMany;
             _imageStorage = imageStorage;
         }
-        public async Task<IActionResult> Index(ProductFilter? filter, int page = 1, int pageSize = 4)
+        public async Task<IActionResult> Index(ProductFilter? filter, int page = 1, int pageSize = 5)
         {
 
             try
@@ -70,7 +70,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest( ex.Message );
             }
         }
 
@@ -84,7 +84,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -115,7 +115,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -132,7 +132,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
 
@@ -182,7 +182,7 @@ namespace SPMH.Webs.Controllers
             catch (Exception ex)
             {
 
-                return BadRequest(new { ok = false, error = ex.Message });
+                return BadRequest(ex.Message);
             }
         }
     }
