@@ -1,4 +1,6 @@
-﻿using Microsoft.AspNetCore.Mvc;
+﻿using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using SPMH.DBContext.Entities;
 using SPMH.Services.Executes;
 using SPMH.Services.Executes.Brands;
@@ -8,6 +10,7 @@ using SPMH.Services.Models;
 
 namespace SPMH.Webs.Controllers
 {
+    [Authorize]
     public class ProductController : Controller
     {
         private readonly ProductCommand _productCommand;
@@ -93,8 +96,15 @@ namespace SPMH.Webs.Controllers
         {
             try
             {
+                var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (int.TryParse(userIdStr, out var uid))
+                {
+                    product.CreateBy = uid;
+                    product.UpdateBy = uid;
+                }
                 string productName = await _productCommand.CreateAsync(product);
                 return Ok(new { ok = true, message = "Tạo thành công sản phẩm " + productName });
+                
             }
             catch (Exception ex)
             {
@@ -107,6 +117,12 @@ namespace SPMH.Webs.Controllers
         {
             try
             {
+                var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                if (int.TryParse(userIdStr, out var uid))
+                {
+                    product.UpdateBy = uid;
+                }
+
                 var isSuccess = await _productCommand.EditProductByIdAsync(product);
                 if (isSuccess)
                     return Ok(new { ok = true, message = "Cập nhật sản phẩm thành công." });

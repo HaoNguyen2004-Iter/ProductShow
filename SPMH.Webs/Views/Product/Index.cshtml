@@ -4,6 +4,10 @@
 }
 @model SPMH.Services.Models.PagedResult<SPMH.Services.Models.ProductModel>
 
+<div class="mb-2">
+    @Html.Partial("~/Views/Shared/Account/_AccountName.cshtml")
+</div>
+
 <!-- Thanh Toolbar -->
 <div class="d-flex align-items-center justify-content-between mb-3">
     @Html.Partial("~/Views/Shared/Product/_ProductToolBar.cshtml")

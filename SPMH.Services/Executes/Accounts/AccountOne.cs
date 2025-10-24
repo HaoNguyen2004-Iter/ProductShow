@@ -9,19 +9,17 @@ namespace SPMH.Services.Executes.Accounts
         private readonly AppDbContext _db;
         public AccountOne(AppDbContext db) => _db = db;
 
-        public async Task<bool> Login(AccountModel account)
+        public async Task<AccountModel?> Login(AccountModel account)
         {
-
             if (BadInput.hasBadInput(account.Username)) throw new ArgumentException("Đầu vào không hợp lệ");
             if (BadInput.hasBadInput(account.Password)) throw new ArgumentException("Đầu vào không hợp lệ");
 
-            var hasAccount = await _db.Accounts.AsNoTracking()
+            var acc = await _db.Accounts.AsNoTracking()
                 .Where(p => p.Username == account.Username && p.Password == account.Password)
-                .AnyAsync();
+                .Select(a => new AccountModel(a.Id, a.Username, a.Password))
+                .FirstOrDefaultAsync();
 
-            if (!hasAccount)
-                return false;
-            return true;
+            return acc;
         }
     }
 }

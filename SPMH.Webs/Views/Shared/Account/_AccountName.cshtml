@@ -1,0 +1,10 @@
+﻿@if (User?.Identity?.IsAuthenticated ?? false)
+{
+	<div class="card border-0 shadow-sm">
+		<div class="card-header bg-body-tertiary d-flex justify-content-end align-items-center gap-2">
+			<span class="text-muted small">Hi,</span>
+			<span class="fw-semibold text-primary">@User.Identity.Name</span>
+			<button type="submit" class="btn btn-outline-danger btn-sm">Logout</button>
+		</div>
+	</div>
+}

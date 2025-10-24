@@ -1,11 +1,12 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.EntityFrameworkCore;
 using SPMH.DBContext;
 using SPMH.Services;
 using SPMH.Services.Executes;
+using SPMH.Services.Executes.Accounts;
 using SPMH.Services.Executes.Brands;
 using SPMH.Services.Executes.Products;
 using SPMH.Services.Executes.Storage;
-using SPMH.Services.Executes.Accounts;
 using SPMH.Services.Models;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,6 +34,15 @@ builder.Services.AddScoped<AccountModel>();
 builder.Services.AddScoped<AccountOne>();
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
+    .AddCookie(opt =>
+    {
+        opt.LoginPath = "/Account/Login";
+        opt.AccessDeniedPath = "/Account/Login";
+    });
+builder.Services.AddAuthorization();
+
+
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -44,6 +54,9 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
+
+app.UseAuthentication();
+app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
