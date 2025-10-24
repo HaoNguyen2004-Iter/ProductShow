@@ -35,7 +35,7 @@ namespace SPMH.Services.Executes.Products
             var normName = name.ToLower();
 
             var exists = await _db.Products.AnyAsync(p =>
-                p.Status == 1 &&
+                p.Status >= 0 &&
                 (p.Code.ToLower() == normCode || p.Name.ToLower() == normName));
             if (exists) throw new InvalidOperationException("Sản phẩm đã tồn tại");
 
@@ -115,7 +115,7 @@ namespace SPMH.Services.Executes.Products
                 p.Status >= 0 &&
                 p.Id != product.Id &&
                 (p.Code.ToLower() == normCode || p.Name.ToLower() == normName));
-            if (duplicate) throw new InvalidOperationException("Mã hoặc tên sản phẩm đã tồn tại");
+            if (!duplicate) throw new InvalidOperationException("Mã hoặc tên sản phẩm không tồn tại");
 
             var normBrand = brandName.ToLower();
             var brandId = await _db.Brands.AsNoTracking()

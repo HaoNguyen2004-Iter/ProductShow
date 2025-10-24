@@ -1,5 +1,4 @@
 ﻿using System.Linq;
-using System.Linq.Expressions;
 using Microsoft.EntityFrameworkCore;
 using SPMH.DBContext;
 using SPMH.DBContext.Entities;
@@ -15,92 +14,159 @@ namespace SPMH.Services.Executes.Products
 
         public async Task<PagedResult<ProductModel>> GetPagedAsync(int page, int pageSize, ProductFilter? filter)
         {
-            page = Math.Max(1, page);
-            pageSize = Math.Max(1, pageSize);
+            if (page < 1) page = 1;
+            if (pageSize < 1) pageSize = 5;
 
-            ValidateFilter(filter);
+            if (filter != null)
+            {
+                if (!string.IsNullOrEmpty(filter.Name) && BadInput.hasBadInput(filter.Name))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+                if (!string.IsNullOrEmpty(filter.Brand) && BadInput.hasBadInput(filter.Brand))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+                if (!string.IsNullOrEmpty(filter.Code) && BadInput.hasBadInput(filter.Code))
+                    throw new ArgumentException("Đầu vào không hợp lệ");
+            }
 
-            var query = _db.Products.AsNoTracking().Where(p => p.Status >= 0);
-            query = ApplyFilterWithoutKeyword(query, filter);
+            var baseQuery = _db.Products
+                .AsNoTracking()
+                .Where(p => p.Status >= 0);
 
-            string? term = filter?.Name?.Trim() ?? filter?.Code?.Trim();
-            if (string.IsNullOrWhiteSpace(term))
-                return await GetPagedResultAsync(query, page, pageSize, filter?.Price.HasValue);
+            if (filter is not null)
+            {
+                baseQuery = ApplyFilterWithoutKeyword(baseQuery, filter);
+            }
+
+            string? term = null;
+            if (!string.IsNullOrWhiteSpace(filter?.Name)) term = filter!.Name.Trim();
+            else if (!string.IsNullOrWhiteSpace(filter?.Code)) term = filter!.Code.Trim();
+
+            if (string.IsNullOrEmpty(term))
+            {
+                var total0 = await baseQuery.CountAsync();
+
+                var ordered = (filter?.Price.HasValue == true)
+                    ? baseQuery.OrderByDescending(p => p.PriceVnd).ThenByDescending(p => p.Id)
+                    : baseQuery.OrderByDescending(p => p.Id);
+
+                var items0 = await ordered
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .Select(p => new ProductModel(
+                        p.Id,
+                        p.Code,
+                        p.Name,
+                        p.BrandId,
+                        p.Brand.Name,
+                        p.PriceVnd,
+                        p.Stock,
+                        p.Status,
+                        p.Description,
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay))
+                    .ToListAsync();
+
+                return new PagedResult<ProductModel>(items0, total0, page, pageSize);
+            }
 
             var pattern = $"%{term}%";
-
-            var nameQuery = query.Where(p => EF.Functions.Like(p.Name, pattern));
-            var codeQuery = query.Where(p => EF.Functions.Like(p.Code, pattern) && !EF.Functions.Like(p.Name, pattern));
+            var nameQuery = baseQuery.Where(p => EF.Functions.Like(p.Name, pattern));
+            var codeQuery = baseQuery.Where(p =>
+                EF.Functions.Like(p.Code, pattern) &&
+               !EF.Functions.Like(p.Name, pattern));
 
             var nameCount = await nameQuery.CountAsync();
             var codeCount = await codeQuery.CountAsync();
             var total = nameCount + codeCount;
+
             var skip = (page - 1) * pageSize;
 
-            var items = new List<ProductModel>();
+            var orderedName = (filter?.Price.HasValue == true)
+                ? nameQuery.OrderByDescending(p => p.PriceVnd).ThenByDescending(p => p.Id)
+                : nameQuery.OrderByDescending(p => p.Id);
 
-            // Lấy từ Name
+            var takeFromName = 0;
+            List<ProductModel> namePart = new();
             if (skip < nameCount)
             {
-                var take = Math.Min(pageSize, nameCount - skip);
-                items.AddRange(await GetOrdered(nameQuery, filter?.Price.HasValue)
-                    .Skip(skip).Take(take)
-                    .Select(ToModel).ToListAsync());
+                takeFromName = Math.Min(pageSize, nameCount - skip);
+                namePart = await orderedName
+                    .Skip(skip)
+                    .Take(takeFromName)
+                    .Select(p => new ProductModel(
+                        p.Id,
+                        p.Code,
+                        p.Name,
+                        p.BrandId,
+                        p.Brand.Name,
+                        p.PriceVnd,
+                        p.Stock,
+                        p.Status,
+                        p.Description,
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay
+                        ))
+                    .ToListAsync();
             }
 
-            // Lấy từ Code nếu còn chỗ
-            var remaining = pageSize - items.Count;
-            if (remaining > 0 && skip < total)
+            var remaining = pageSize - takeFromName;
+            List<ProductModel> codePart = new();
+            if (remaining > 0)
             {
                 var skipCode = Math.Max(0, skip - nameCount);
-                items.AddRange(await GetOrdered(codeQuery, filter?.Price.HasValue)
-                    .Skip(skipCode).Take(remaining)
-                    .Select(ToModel).ToListAsync());
+
+                var orderedCode = (filter?.Price.HasValue == true)
+                    ? codeQuery.OrderByDescending(p => p.PriceVnd).ThenByDescending(p => p.Id)
+                    : codeQuery.OrderByDescending(p => p.Id);
+
+                codePart = await orderedCode
+                    .Skip(skipCode)
+                    .Take(remaining)
+                    .Select(p => new ProductModel(
+                        p.Id,
+                        p.Code,
+                        p.Name,
+                        p.BrandId,
+                        p.Brand.Name,
+                        p.PriceVnd,
+                        p.Stock,
+                        p.Status,
+                        p.Description,
+                        p.Url ?? string.Empty,
+                        p.CreateBy,
+                        p.CreateDate,
+                        p.UpdateBy,
+                        p.LastUpdateDay))
+                    .ToListAsync();
             }
 
+            var items = namePart.Concat(codePart).ToList();
             return new PagedResult<ProductModel>(items, total, page, pageSize);
         }
 
-        private static IQueryable<Product> ApplyFilterWithoutKeyword(IQueryable<Product> q, ProductFilter f)
+        private static IQueryable<Product> ApplyFilterWithoutKeyword(IQueryable<Product> query, ProductFilter f)
         {
             if (!string.IsNullOrWhiteSpace(f.Brand))
-                q = q.Where(p => EF.Functions.Like(p.Brand.Name, $"%{f.Brand.Trim()}%"));
+            {
+                var brand = f.Brand.Trim();
+                query = query.Where(p => EF.Functions.Like(p.Brand.Name, brand));
+            }
 
-            if (f.Price.HasValue) q = q.Where(p => p.PriceVnd <= f.Price.Value);
-            if (f.Stock.HasValue) q = q.Where(p => p.Stock == f.Stock.Value);
-            if (f.Status.HasValue) q = q.Where(p => p.Status == f.Status.Value);
+            if (f.Price.HasValue)
+                query = query.Where(p => p.PriceVnd <= f.Price.Value);
 
-            return q;
-        }
+            if (f.Stock.HasValue)
+                query = query.Where(p => p.Stock == f.Stock.Value);
 
-        private static IQueryable<Product> GetOrdered(IQueryable<Product> q, bool? sortByPrice)
-            => sortByPrice == true
-                ? q.OrderByDescending(p => p.PriceVnd).ThenByDescending(p => p.Id)
-                : q.OrderByDescending(p => p.Id);
+            if (f.Status.HasValue)
+                query = query.Where(p => p.Status == f.Status.Value);
 
-        private static readonly Expression<Func<Product, ProductModel>> ToModel = p => new(
-            p.Id, p.Code, p.Name, p.BrandId, p.Brand.Name, p.PriceVnd, p.Stock, p.Status,
-            p.Description, p.Url ?? string.Empty, p.CreateBy, p.CreateDate, p.UpdateBy, p.LastUpdateDay);
-
-        private async Task<PagedResult<ProductModel>> GetPagedResultAsync(
-            IQueryable<Product> query, int page, int pageSize, bool? sortByPrice)
-        {
-            var total = await query.CountAsync();
-            var items = await GetOrdered(query, sortByPrice)
-                .Skip((page - 1) * pageSize)
-                .Take(pageSize)
-                .Select(ToModel)
-                .ToListAsync();
-
-            return new PagedResult<ProductModel>(items, total, page, pageSize);
-        }
-
-        private static void ValidateFilter(ProductFilter? f)
-        {
-            if (f == null) return;
-            if (!string.IsNullOrEmpty(f.Name) && BadInput.hasBadInput(f.Name)) throw new ArgumentException("Tên không hợp lệ");
-            if (!string.IsNullOrEmpty(f.Brand) && BadInput.hasBadInput(f.Brand)) throw new ArgumentException("Thương hiệu không hợp lệ");
-            if (!string.IsNullOrEmpty(f.Code) && BadInput.hasBadInput(f.Code)) throw new ArgumentException("Mã không hợp lệ");
+            return query;
         }
     }
 }
