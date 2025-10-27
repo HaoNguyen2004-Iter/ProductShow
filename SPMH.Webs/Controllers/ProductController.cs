@@ -1,6 +1,10 @@
-﻿using System.Security.Claims;
+﻿using System.Globalization;
+using System.Security.Claims;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NPOI.SS.UserModel;
+using NPOI.XSSF.UserModel;
 using SPMH.DBContext.Entities;
 using SPMH.Services.Executes;
 using SPMH.Services.Executes.Brands;
@@ -27,11 +31,32 @@ namespace SPMH.Webs.Controllers
             _brandMany = brandMany;
             _imageStorage = imageStorage;
         }
-        public async Task<IActionResult> Index(ProductFilter? filter, int page = 1, int pageSize = 5)
-        {
 
+        public async Task<IActionResult> Index(
+            [FromQuery] ProductModel? filter,
+            int page = 1,
+            int pageSize = 5,
+            [FromQuery(Name = "brand")] string? brand = null,
+            [FromQuery(Name = "price")] decimal? price = null,
+            [FromQuery(Name = "stock")] int? stock = null,
+            [FromQuery(Name = "status")] int? status = null)
+        {
             try
             {
+                filter ??= new ProductModel();
+
+                if (!string.IsNullOrWhiteSpace(brand))
+                    filter.BrandName = brand!.Trim();
+
+                if (price.HasValue && price.Value > 0)
+                    filter.PriceVnd = price.Value;
+
+                if (stock.HasValue && stock.Value > 0)
+                    filter.Stock = stock.Value;
+
+
+                filter.Status = status.HasValue ? status.Value : -999;
+
                 var products = await _productMany.GetPagedAsync(page, pageSize, filter);
 
                 if (Request.Headers["X-Requested-With"] != "XMLHttpRequest")
@@ -42,16 +67,15 @@ namespace SPMH.Webs.Controllers
                 if (Request.Headers["X-Requested-With"] == "XMLHttpRequest")
                 {
                     return PartialView("~/Views/Shared/Product/_ProductTable.cshtml", products);
-                } 
+                }
                 return View(products);
-
             }
             catch (Exception ex)
             {
-
                 return BadRequest(ex.Message);
             }
         }
+
 
         [HttpGet]
         public async Task<IActionResult> Form(int? id)
@@ -73,7 +97,7 @@ namespace SPMH.Webs.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest( ex.Message );
+                return BadRequest(ex.Message);
             }
         }
 
@@ -104,7 +128,6 @@ namespace SPMH.Webs.Controllers
                 }
                 string productName = await _productCommand.CreateAsync(product);
                 return Ok(new { ok = true, message = "Tạo thành công sản phẩm " + productName });
-                
             }
             catch (Exception ex)
             {
@@ -180,7 +203,6 @@ namespace SPMH.Webs.Controllers
                 return Ok(new { ok = true, message = $"Đã xóa {success} sản phẩm thành công." });
             else
                 return BadRequest(new { ok = false, error = "Lỗi khi xóa nhiều sản phẩm" });
-
         }
 
         [HttpPost]
@@ -193,11 +215,34 @@ namespace SPMH.Webs.Controllers
                 using var stream = file.OpenReadStream();
                 var saved = await _imageStorage.SaveProductImageAsync(stream, file.FileName);
                 return Ok(new { ok = true, url = saved.Url });
-
             }
             catch (Exception ex)
             {
+                return BadRequest(ex.Message);
+            }
+        }
 
+        [HttpGet]
+        public async Task<IActionResult> ExportCsvNpoi(
+            [FromQuery] ProductModel? filter,
+            [FromQuery(Name = "brand")] string? brand = null,
+            [FromQuery(Name = "price")] decimal? price = null,
+            [FromQuery(Name = "stock")] int? stock = null,
+            [FromQuery(Name = "status")] int? status = null)
+        {
+            try
+            {
+                filter ??= new ProductModel();
+                if (!string.IsNullOrWhiteSpace(brand)) filter.BrandName = brand.Trim();
+                if (price is > 0) filter.PriceVnd = price.Value;
+                if (stock is > 0) filter.Stock = stock.Value;
+                filter.Status = status ?? -999;
+
+                var fileResult = await _productMany.ExportCsvAsync(filter);
+                return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
+            }
+            catch (Exception ex)
+            {
                 return BadRequest(ex.Message);
             }
         }

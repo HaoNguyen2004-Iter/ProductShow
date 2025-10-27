@@ -21,6 +21,8 @@ namespace SPMH.DBContext.Entities
         public int UpdateBy { get; set; }
         public Account UpdateByAccount { get; set; } = default!;
 
-        public DateTime LastUpdateDay { get; set; }
+        public DateTime? LastUpdateDay { get; set; }
+
+        public string? Keyword { get; set; }
     }
 }

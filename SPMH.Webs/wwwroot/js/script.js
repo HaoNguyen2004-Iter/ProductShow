@@ -23,10 +23,7 @@ function buildSearchQuery() {
 
     const params = new URLSearchParams();
 
-    if (text) {
-        params.append('name', text);
-        params.append('code', text);
-    }
+    if (text) params.append('keyword', text);
     if (brand) params.append('brand', brand);
     if (price) params.append('price', price);
     if (stock) params.append('stock', stock);
@@ -97,7 +94,7 @@ function updateBulkState() {
     $(document).on('click', '#btnLogin', function (e) {
         e.preventDefault();
         const $wrap = $('#LoginForm');
-        const f = Spmh.fields.reader($wrap); 
+        const f = Spmh.fields.reader($wrap);
 
         const $btn = $(this);
         const username = f.read('Username').toString().trim();
@@ -116,7 +113,7 @@ function updateBulkState() {
         $.ajax({
             url: '/Account/Login',
             method: 'POST',
-            data: payload, 
+            data: payload,
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
             .done(function (xhr) {
@@ -132,6 +129,32 @@ function updateBulkState() {
                 $btn.prop('disabled', false).html(originalHtml);
             });
     });
+
+    // Đăng xuất
+    $(document).on('click', '#btnLogout', function (e) {
+        e.preventDefault();
+        const $btn = jQuery(this);
+        const originalHtml = $btn.html();
+
+        $btn.prop('disabled', true).html('Đang đăng xuất...');
+
+        $.ajax({
+            url: '/Account/Logout',
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .done(function () {
+                window.location.assign('/Account/Login');
+            })
+            .fail(function (xhr) {
+                const res = xhr.responseJSON;
+                const msg = (res && (res.error || res.message)) || xhr.responseText || 'Đăng xuất thất bại';
+                if (typeof showTempAlert === 'function') showTempAlert(msg, 'danger', 3000);
+            })
+            .always(function () {
+                $btn.prop('disabled', false).html(originalHtml);
+            });
+    })
 
     let isComposing = false;
     // Kiểm tra nhập liệu
@@ -496,6 +519,70 @@ function updateBulkState() {
         const qs = buildSearchQuery();
         const url = href + (qs ? (href.includes('?') ? '&' : '?') + qs : '');
         loadTable(url);
+    });
+
+    //Xuất Excel
+    $(document).on('click', '#btnExportCsv', async function () {
+        const baseUrl = '/Product/ExportCsvNpoi';
+
+        try {
+            let qs = '';
+            const searchParams = new URLSearchParams();
+
+            qs = searchParams.toString();
+            const url = baseUrl + (qs ? ('?' + qs) : '');
+
+            
+            const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+
+            // 3. Xử lý lỗi
+            if (!resp.ok) {
+                let err = '';
+                try { err = await resp.text(); } catch { }
+                if (typeof showTempAlert === 'function')
+                    showTempAlert(err || 'Export failed', 'danger', 3000);
+                return;
+            }
+
+            // 4. Lấy tên file từ header
+            let fileName = null;
+            const cd = resp.headers.get('Content-Disposition') || '';
+            let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+            if (m && m[1]) fileName = decodeURIComponent(m[1]);
+            else {
+                m = cd.match(/filename="?([^";]+)"?/i);
+                fileName = m ? m[1] : null;
+            }
+
+            // 5. Nếu không có tên → tạo mặc định theo type
+            if (!fileName) {
+                const ts = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0];
+                const contentType = resp.headers.get('Content-Type') || '';
+                if (contentType.includes('spreadsheetml.sheet') || contentType.includes('excel')) {
+                    fileName = `products_${ts}.xlsx`;
+                } else if (contentType.includes('csv')) {
+                    fileName = `products_${ts}.csv`;
+                } else {
+                    fileName = `download_${ts}`;
+                }
+            }
+
+            // 6. Tải file
+            const blob = await resp.blob();
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+
+        } catch (e) {
+            console.error(e);
+            if (typeof showTempAlert === 'function')
+                showTempAlert('Lỗi khi tải file', 'danger', 3000);
+        }
     });
 
 })(jQuery);

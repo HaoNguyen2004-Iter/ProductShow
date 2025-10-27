@@ -31,6 +31,7 @@ namespace SPMH.DBContext
                 entity.Property(e => e.Stock).IsRequired();
                 entity.Property(e => e.Status).IsRequired();
                 entity.Property(e => e.Url).HasMaxLength(500);
+                entity.Property(e => e.Keyword).HasMaxLength(500);
 
                 entity.HasOne(d => d.Brand)
                     .WithMany(p => p.Products)

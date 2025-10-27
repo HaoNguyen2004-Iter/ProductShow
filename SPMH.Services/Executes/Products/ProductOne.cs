@@ -27,7 +27,8 @@ namespace SPMH.Services.Executes.Products
                     p.CreateBy,
                     p.CreateDate,
                     p.UpdateBy,
-                    p.LastUpdateDay)
+                    p.LastUpdateDay,
+                    p.Keyword)
                 {
                     CreateByName = p.CreateByAccount != null ? p.CreateByAccount.Username : string.Empty,
                     UpdateByName = p.UpdateByAccount != null ? p.UpdateByAccount.Username : string.Empty

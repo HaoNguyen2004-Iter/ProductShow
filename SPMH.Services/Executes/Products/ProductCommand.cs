@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using System.Text;
+using Microsoft.EntityFrameworkCore;
+using NPOI.XSSF.UserModel;
 using SPMH.DBContext;
 using SPMH.DBContext.Entities;
 using SPMH.Services.Models;
@@ -14,11 +16,8 @@ namespace SPMH.Services.Executes.Products
         {
             if (product == null) throw new ArgumentNullException(nameof(product));
 
-            if(BadInput.hasBadInput(product.Name)) throw new ArgumentException("Đầu vào không hợp lệ");
-            if(BadInput.hasBadInput(product.BrandName)) throw new ArgumentException("Đầu vào không hợp lệ");
-            if(BadInput.hasBadInput(product.Code)) throw new ArgumentException("Đầu vào không hợp lệ");
-            if(BadInput.hasBadInput(product.Description)) throw new ArgumentException("Đầu vào không hợp lệ");
-            
+            if (SqlGuard.IsSuspicious(product)) throw new ArgumentNullException("Đầu vào đáng ngờ");
+
             var code = (product.Code ?? string.Empty).Trim();
             var name = (product.Name ?? string.Empty).Trim();
             var brandName = (product.BrandName ?? string.Empty).Trim();
@@ -148,5 +147,7 @@ namespace SPMH.Services.Executes.Products
             await _db.SaveChangesAsync();
             return true;
         }
+
+        
     }
 }

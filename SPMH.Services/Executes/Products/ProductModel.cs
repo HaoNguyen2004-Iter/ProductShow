@@ -17,9 +17,9 @@
         public int UpdateBy { get; set; }
         public DateTime LastUpdateDay { get; set; }
 
-        // NEW: hiển thị tên người tạo/sửa
         public string CreateByName { get; set; } = string.Empty;
         public string UpdateByName { get; set; } = string.Empty;
+        public string Keyword { get; set; } = string.Empty;
 
         public ProductModel() { }
 
@@ -37,7 +37,8 @@
             int createBy = 0,
             DateTime? createDate = null,
             int updateBy = 0,
-            DateTime? lastUpdateDay = null)
+            DateTime? lastUpdateDay = null,
+            string? keyword = null) 
         {
             Id = id;
             Code = code ?? string.Empty;
@@ -53,6 +54,7 @@
             CreateDate = createDate ?? default;
             UpdateBy = updateBy;
             LastUpdateDay = lastUpdateDay ?? default;
+            Keyword = keyword ?? string.Empty;
         }
     }
 }

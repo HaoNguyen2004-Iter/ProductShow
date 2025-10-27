@@ -11,8 +11,8 @@ namespace SPMH.Services.Executes.Accounts
 
         public async Task<AccountModel?> Login(AccountModel account)
         {
-            if (BadInput.hasBadInput(account.Username)) throw new ArgumentException("Đầu vào không hợp lệ");
-            if (BadInput.hasBadInput(account.Password)) throw new ArgumentException("Đầu vào không hợp lệ");
+            if (SqlGuard.IsSuspicious(account))
+                throw new ArgumentException("Đầu vào đáng ngờ");
 
             var acc = await _db.Accounts.AsNoTracking()
                 .Where(p => p.Username == account.Username && p.Password == account.Password)
