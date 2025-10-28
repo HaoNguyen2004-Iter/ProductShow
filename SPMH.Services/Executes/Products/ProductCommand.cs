@@ -112,7 +112,7 @@ namespace SPMH.Services.Executes.Products
 
             var duplicate = await _db.Products.AnyAsync(p =>
                 p.Status >= 0 &&
-                p.Id != product.Id &&
+                p.Id == product.Id &&
                 (p.Code.ToLower() == normCode || p.Name.ToLower() == normName));
             if (!duplicate) throw new InvalidOperationException("Mã hoặc tên sản phẩm không tồn tại");
 

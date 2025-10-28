@@ -5,14 +5,18 @@
 		<div class="card-body">
 			<div class="d-flex justify-content-between align-items-center mb-3">
 				<h5 class="mb-0">@Model.Name</h5>
-				@if (Model.Status == 1)
-				{
-					<span class="btn btn-sm btn-success disabled">Hoạt động</span>
-				}
-				else
-				{
-					<span class="btn btn-sm btn-secondary disabled">Dừng bán</span>
-				}
+				<div class="d-flex align-items-center">
+					<button id="btnExportPdf" data-id="@Model.Id" class="btn btn-sm btn-danger me-2" type="button">Xuất PDF</button>
+					<button id="btnExportWord" data-id="@Model.Id" class="btn btn-sm btn-outline-primary me-2" type="button">Xuất Word</button>
+					@if (Model.Status == 1)
+					{
+						<span class="btn btn-sm btn-success disabled">Hoạt động</span>
+					}
+					else
+					{
+						<span class="btn btn-sm btn-secondary disabled">Dừng bán</span>
+					}
+				</div>
 			</div>
 			<div class="row g-4">
 				<div class="col-lg-5">

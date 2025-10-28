@@ -35,27 +35,11 @@ namespace SPMH.Webs.Controllers
         public async Task<IActionResult> Index(
             [FromQuery] ProductModel? filter,
             int page = 1,
-            int pageSize = 5,
-            [FromQuery(Name = "brand")] string? brand = null,
-            [FromQuery(Name = "price")] decimal? price = null,
-            [FromQuery(Name = "stock")] int? stock = null,
-            [FromQuery(Name = "status")] int? status = null)
+            int pageSize = 5)
         {
             try
             {
                 filter ??= new ProductModel();
-
-                if (!string.IsNullOrWhiteSpace(brand))
-                    filter.BrandName = brand!.Trim();
-
-                if (price.HasValue && price.Value > 0)
-                    filter.PriceVnd = price.Value;
-
-                if (stock.HasValue && stock.Value > 0)
-                    filter.Stock = stock.Value;
-
-
-                filter.Status = status.HasValue ? status.Value : -999;
 
                 var products = await _productMany.GetPagedAsync(page, pageSize, filter);
 
@@ -75,7 +59,6 @@ namespace SPMH.Webs.Controllers
                 return BadRequest(ex.Message);
             }
         }
-
 
         [HttpGet]
         public async Task<IActionResult> Form(int? id)
@@ -240,6 +223,39 @@ namespace SPMH.Webs.Controllers
 
                 var fileResult = await _productMany.ExportCsvAsync(filter);
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+
+        [HttpGet]
+        public async Task<IActionResult> ExportPdf(int id)
+        {
+            try
+            {
+                var pdfBytes = await _productOne.GeneratePdfAsync(id);
+                var product = await _productOne.GetProductByIdAsync(id);
+                var fileName = $"product_{product.Id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
+                return File(pdfBytes, "application/pdf", fileName);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(ex.Message);
+            }
+        }
+
+        [HttpGet]
+        public async Task<IActionResult> ExportWord(int id)
+        {
+            try
+            {
+                var wordBytes = await _productOne.GenerateWordAsync(id);
+                var product = await _productOne.GetProductByIdAsync(id);
+                var fileName = $"product_{product.Id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.docx";
+                return File(wordBytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName);
             }
             catch (Exception ex)
             {

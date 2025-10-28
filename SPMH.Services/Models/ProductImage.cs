@@ -4,5 +4,7 @@
     {
         public required string Url { get; init; }
         public string? Alt { get; init; }
+
+        public int? size { get; init; }
     }
 }

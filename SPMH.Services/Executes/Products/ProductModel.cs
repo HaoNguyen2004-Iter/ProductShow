@@ -21,6 +21,13 @@
         public string UpdateByName { get; set; } = string.Empty;
         public string Keyword { get; set; } = string.Empty;
 
+        // Dùng để cho filter
+        public decimal? PriceFrom { get; set; }
+        public decimal? PriceTo { get; set; }
+
+        public int? StockFrom { get; set; }
+        public int? StockTo { get; set; }
+
         public ProductModel() { }
 
         public ProductModel(

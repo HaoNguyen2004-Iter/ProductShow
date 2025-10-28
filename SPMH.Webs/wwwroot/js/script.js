@@ -17,23 +17,26 @@ function buildSearchQuery() {
 
     const text = ($('#searchText').val() || '').trim();
     const brand = ($('#brandFilter').val() || '').trim();
-    const price = ($('#Price').val() || '').trim();
-    const stock = ($('#Stock').val() || '').trim();
+    const priceFrom = ($('#PriceFrom').val() || '').trim();
+    const priceTo = ($('#PriceTo').val() || '').trim();
+    const stockFrom = ($('#StockFrom').val() || '').trim();
+    const stockTo = ($('#StockTo').val() || '').trim();
     const stRaw = ($('#statusFilter').val() || '').trim();
 
     const params = new URLSearchParams();
 
-    if (text) params.append('keyword', text);
-    if (brand) params.append('brand', brand);
-    if (price) params.append('price', price);
-    if (stock) params.append('stock', stock);
+    if (text) params.append('Keyword', text);
+    if (brand) params.append('BrandName', brand);
+    if (priceFrom) params.append('PriceFrom', priceFrom);
+    if (priceTo) params.append('PriceTo', priceTo);
+    if (stockFrom) params.append('StockFrom', stockFrom);
+    if (stockTo) params.append('StockTo', stockTo);
 
-    if (stRaw === 'active') params.append('status', '1');
-    else if (stRaw === 'inactive') params.append('status', '0');
+    if (stRaw === '1') params.append('Status', '1');
+    else if (stRaw === '0') params.append('Status', '0');
 
     return params.toString();
 }
-
 function buildSearchUrl(base = '/Product/Index') {
     const qs = buildSearchQuery();
     return base + (qs ? ('?' + qs) : '');
@@ -157,7 +160,8 @@ function updateBulkState() {
     })
 
     let isComposing = false;
-    // Kiểm tra nhập liệu
+
+    // Kiểm tra nhập 
     $(document).on('compositionstart', '#searchText', function () {
         isComposing = true;
     });
@@ -174,7 +178,7 @@ function updateBulkState() {
     });
 
     // Tự động tìm khi đổi select/number
-    $(document).on('change', '#brandFilter, #statusFilter, #Price, #Stock', function () {
+    $(document).on('change', '#brandFilter, #statusFilter, #PriceFrom, #PriceTo, #StockFrom, #StockTo', function () {
         $('#searchForm').trigger('submit');
     });
 
@@ -521,7 +525,7 @@ function updateBulkState() {
         loadTable(url);
     });
 
-    //Xuất Excel
+    //Xuất Excel toàn bảng
     $(document).on('click', '#btnExportCsv', async function () {
         const baseUrl = '/Product/ExportCsvNpoi';
 
@@ -582,6 +586,92 @@ function updateBulkState() {
             console.error(e);
             if (typeof showTempAlert === 'function')
                 showTempAlert('Lỗi khi tải file', 'danger', 3000);
+        }
+    });
+
+    //Xuất PDF chi tiết sản phẩm
+    $(document).on('click', '#btnExportPdf', async function (e) {
+        e.preventDefault();
+        const id = this.getAttribute('data-id');
+        if (!id) return;
+
+        const url = '/Product/ExportPdf?id=' + encodeURIComponent(id);
+        try {
+            const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+
+            if (!resp.ok) {
+                let err = '';
+                try { err = await resp.text(); } catch { }
+                if (typeof showTempAlert === 'function') showTempAlert(err || 'Xuất PDF thất bại', 'danger', 3000);
+                return;
+            }
+
+            const blob = await resp.blob();
+
+            // Determine filename from Content-Disposition header
+            let fileName = null;
+            const cd = resp.headers.get('Content-Disposition') || '';
+            let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+            if (m && m[1]) fileName = decodeURIComponent(m[1]);
+            else {
+                m = cd.match(/filename="?([^";]+)"?/i);
+                fileName = m ? m[1] : null;
+            }
+
+            if (!fileName) {
+                const ts = new Date().toISOString().replace(/[:.]/g, '-').replace('T', '_').split('Z')[0];
+                fileName = `product_${id}_${ts}.pdf`;
+            }
+
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+        } catch (err) {
+            console.error(err);
+            if (typeof showTempAlert === 'function') showTempAlert('Lỗi khi tải PDF', 'danger', 3000);
+        }
+    });
+
+    //Xuất Word chi tiết sản phẩm
+    $(document).on('click', '#btnExportWord', async function (e) {
+        e.preventDefault();
+        const id = this.getAttribute('data-id');
+        if (!id) return;
+
+        const url = '/Product/ExportWord?id=' + encodeURIComponent(id);
+        try {
+            const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
+            if (!resp.ok) {
+                let err = '';
+                try { err = await resp.text(); } catch { }
+                if (typeof showTempAlert === 'function') showTempAlert(err || 'Xuất Word thất bại', 'danger', 3000);
+                return;
+            }
+            const blob = await resp.blob();
+            let fileName = `product_${id}_${new Date().toISOString().replace(/[:.]/g, '-')}.docx`;
+            const cd = resp.headers.get('Content-Disposition') || '';
+            let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
+            if (m && m[1]) fileName = decodeURIComponent(m[1]);
+            else {
+                m = cd.match(/filename="?([^";]+)"?/i);
+                if (m && m[1]) fileName = m[1];
+            }
+            const downloadUrl = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(downloadUrl);
+        } catch (err) {
+            console.error(err);
+            if (typeof showTempAlert === 'function') showTempAlert('Lỗi khi tải Word', 'danger', 3000);
         }
     });
 

@@ -23,11 +23,18 @@ builder.Services.AddSingleton<ImageStorage>(sp =>
     return new ImageStorage(physicalRoot, publicBase);
 });
 
-//Đăng ký DI cho ProductService
+builder.Services.AddScoped<ProductOne>(sp =>
+{
+    var db = sp.GetRequiredService<AppDbContext>();
+    var env = sp.GetRequiredService<IWebHostEnvironment>();
+    return new ProductOne(db, env.WebRootPath);
+});
+
+
 builder.Services.AddScoped<ProductCommand>();
 builder.Services.AddScoped<ProductMany>();
 builder.Services.AddScoped<ProductModel>();
-builder.Services.AddScoped<ProductOne>();
+
 builder.Services.AddScoped<BrandMany>();
 builder.Services.AddScoped<BrandModel>();
 builder.Services.AddScoped<AccountModel>();

@@ -6,17 +6,19 @@
             <input type="text"
                    class="form-control"
                    id="searchText"
+                   name="Keyword"
                    placeholder="Nhập tên hoặc mã..."
-                   autocomplete="off">
+                   autocomplete="off"
+                   value="@(Context.Request.Query["Keyword"].ToString())">
         </div>
 
         <!-- Lọc theo hãng -->
         <div class="col-md-2">
             <label class="form-label fw-bold">Hãng</label>
             @{
-                var curBrand = (string?)Context.Request.Query["brand"];
+                var curBrand = (string?)Context.Request.Query["BrandName"];
             }
-            <select id="brandFilter" name="brand" class="form-select">
+            <select id="brandFilter" name="BrandName" class="form-select">
                 <option value="">Tất cả hãng</option>
                 @if (ViewBag.Brands is IEnumerable<SPMH.Services.Models.BrandModel> brands)
                 {
@@ -29,37 +31,60 @@
             </select>
         </div>
 
-        <!-- Lọc theo giá -->
-        <div class="col-md-2">
-            <label class="form-label fw-bold">Giá</label>
+        <!-- Lọc theo giá: range -->
+        <div class="col-md-3">
+            <label class="form-label fw-bold">Giá (từ - đến)</label>
             <div class="input-group">
                 <span class="input-group-text">₫</span>
                 <input type="number"
                        class="form-control"
-                       id="Price"
+                       id="PriceFrom"
+                       name="PriceFrom"
                        placeholder="0"
                        min="0"
-                       step="1000">
+                       step="1000"
+                       value="@(Context.Request.Query["PriceFrom"].ToString())">
+                <span class="input-group-text">—</span>
+                <input type="number"
+                       class="form-control"
+                       id="PriceTo"
+                       name="PriceTo"
+                       placeholder="0"
+                       min="0"
+                       step="1000"
+                       value="@(Context.Request.Query["PriceTo"].ToString())">
             </div>
         </div>
 
-        <!-- Lọc theo số lượng -->
+        <!-- Lọc theo số lượng: range -->
         <div class="col-md-2">
-            <label class="form-label fw-bold">Số lượng tối thiểu</label>
-            <input type="number"
-                   class="form-control"
-                   id="Stock"
-                   placeholder="0"
-                   min="0">
+            <label class="form-label fw-bold">Tồn kho (từ - đến)</label>
+            <div class="input-group">
+                <input type="number"
+                       class="form-control"
+                       id="StockFrom"
+                       name="StockFrom"
+                       placeholder="0"
+                       min="0"
+                       value="@(Context.Request.Query["StockFrom"].ToString())">
+                <span class="input-group-text">—</span>
+                <input type="number"
+                       class="form-control"
+                       id="StockTo"
+                       name="StockTo"
+                       placeholder="0"
+                       min="0"
+                       value="@(Context.Request.Query["StockTo"].ToString())">
+            </div>
         </div>
 
         <!-- Lọc theo trạng thái -->
         <div class="col-md-2">
             <label class="form-label fw-bold">Trạng thái</label>
-            <select class="form-select" id="statusFilter">
+            <select class="form-select" id="statusFilter" name="Status">
                 <option value="">Tất cả</option>
-                <option value="active">Hoạt động</option>
-                <option value="inactive">Dừng bán</option>
+                <option value="1" selected="@(Context.Request.Query["Status"] == "1" ? "selected" : null)">Hoạt động</option>
+                <option value="0" selected="@(Context.Request.Query["Status"] == "0" ? "selected" : null)">Dừng bán</option>
             </select>
         </div>
         <div class="col-md-1">
