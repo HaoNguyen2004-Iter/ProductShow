@@ -131,7 +131,7 @@ namespace SPMH.Webs.Controllers
 
                 var isSuccess = await _productCommand.EditProductByIdAsync(product);
                 if (isSuccess)
-                    return Ok(new { ok = true, message = "Cập nhật sản phẩm thành công." });
+                    return Ok(new { ok = true, message = "Cập nhật sản phẩm thành công" });
 
                 return BadRequest(new { ok = false, error = "Đã xảy ra lỗi khi cập nhật sản phẩm." });
             }
@@ -189,15 +189,221 @@ namespace SPMH.Webs.Controllers
         }
 
         [HttpPost]
-        public async Task<IActionResult> Upload([FromForm] IFormFile file)
+        public async Task<IActionResult> UploadChunk([FromForm] IFormFile chunk, [FromForm] string fileCode, [FromForm] int chunkIndex)
         {
+            if (chunk == null || chunk.Length == 0) return BadRequest(new { ok = false, error = "Không có chunk" });
             try
             {
-                if (file == null || file.Length == 0)
-                    return BadRequest(new { ok = false, error = "Không thấy tệp để tải lên. " });
-                using var stream = file.OpenReadStream();
-                var saved = await _imageStorage.SaveProductImageAsync(stream, file.FileName);
+                fileCode = fileCode?.Replace("\"", string.Empty) ?? string.Empty;
+                using var stream = chunk.OpenReadStream();
+                await _imageStorage.SaveChunkAsync(stream, fileCode, chunkIndex);
+                return Ok(new { ok = true });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { ok = false, error = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> CompleteUpload([FromForm] string fileCode, [FromForm] string fileName, [FromForm] int totalChunks = 0)
+        {
+            if (string.IsNullOrWhiteSpace(fileCode) || string.IsNullOrWhiteSpace(fileName))
+                return BadRequest(new { ok = false, error = "Thiếu fileCode hoặc fileName." });
+
+            try
+            {
+                var saved = await _imageStorage.MergeChunksAsync(fileCode, fileName, totalChunks);
                 return Ok(new { ok = true, url = saved.Url });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { ok = false, error = ex.Message });
+            }
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> Import([FromForm] IFormFile file)
+        {
+            if (file == null || file.Length == 0)
+                return BadRequest(new { ok = false, error = "Không thấy tệp để tải lên." });
+
+            try
+            {
+                var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+                int userId = 0;
+                if (!int.TryParse(userIdStr, out userId)) userId = 1;
+
+                var ext = Path.GetExtension(file.FileName ?? string.Empty).ToLowerInvariant();
+                var errors = new List<string>();
+                var success = 0;
+                var total = 0;
+
+                using var stream = file.OpenReadStream();
+
+                if (ext == ".xlsx")
+                {
+                    IWorkbook wb = new XSSFWorkbook(stream);
+                    var sheet = wb.GetSheetAt(0);
+                    var startRow = sheet.FirstRowNum + 1; 
+                    var lastRow = sheet.LastRowNum;
+                    for (int r = startRow; r <= lastRow; r++)
+                    {
+                        var row = sheet.GetRow(r);
+                        if (row == null) continue;
+                        total++;
+
+                        string GetCellString(ICell? c) => c == null ? string.Empty : c.ToString().Trim();
+
+                        var code = GetCellString(row.GetCell(0));
+                        var name = GetCellString(row.GetCell(1));
+                        var brand = GetCellString(row.GetCell(2));
+                        var priceRaw = GetCellString(row.GetCell(3));
+                        var stockRaw = GetCellString(row.GetCell(4));
+                        var desc = GetCellString(row.GetCell(5));
+                        var statusRaw = GetCellString(row.GetCell(6));
+
+                        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(brand))
+                        {
+                            errors.Add($"Row {r + 1}: missing Code/Name/Brand");
+                            continue;
+                        }
+
+                        if (!decimal.TryParse(priceRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
+                            price = 0m;
+                        if (!int.TryParse(stockRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var stock))
+                            stock = 0;
+                        int status = 1;
+                        if (int.TryParse(statusRaw, out var st) && (st == 0 || st == 1)) status = st;
+
+                        var product = new ProductModel
+                        {
+                            Code = code,
+                            Name = name,
+                            BrandName = brand,
+                            PriceVnd = price,
+                            Stock = stock,
+                            Description = string.IsNullOrWhiteSpace(desc) ? null : desc,
+                            Status = status,
+                            CreateBy = userId,
+                            UpdateBy = userId
+                        };
+
+                        try
+                        {
+                            await _productCommand.CreateAsync(product);
+                            success++;
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"Row {r + 1}: {ex.Message}");
+                        }
+                    }
+                }
+                else if (ext == ".csv")
+                {
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+                    // Read header
+                    var headerLine = await reader.ReadLineAsync();
+                    if (headerLine == null)
+                        return BadRequest(new { ok = false, error = "CSV is empty" });
+
+                    string[] ParseCsvLine(string line)
+                    {
+                        var fields = new List<string>();
+                        if (line == null) return fields.ToArray();
+                        var sb = new StringBuilder();
+                        bool inQuote = false;
+                        for (int i = 0; i < line.Length; i++)
+                        {
+                            var ch = line[i];
+                            if (ch == '"')
+                            {
+                                if (inQuote && i + 1 < line.Length && line[i + 1] == '"')
+                                {
+                                    sb.Append('"');
+                                    i++;
+                                }
+                                else
+                                {
+                                    inQuote = !inQuote;
+                                }
+                            }
+                            else if (ch == ',' && !inQuote)
+                            {
+                                fields.Add(sb.ToString());
+                                sb.Clear();
+                            }
+                            else
+                            {
+                                sb.Append(ch);
+                            }
+                        }
+                        fields.Add(sb.ToString());
+                        return fields.ToArray();
+                    }
+
+                    int rowIndex = 1;
+                    while (!reader.EndOfStream)
+                    {
+                        var line = await reader.ReadLineAsync();
+                        rowIndex++;
+                        if (string.IsNullOrWhiteSpace(line)) continue;
+                        total++;
+                        var parts = ParseCsvLine(line);
+                        string GetAt(int idx) => idx < parts.Length ? parts[idx].Trim() : string.Empty;
+
+                        var code = GetAt(0);
+                        var name = GetAt(1);
+                        var brand = GetAt(2);
+                        var priceRaw = GetAt(3);
+                        var stockRaw = GetAt(4);
+                        var desc = GetAt(5);
+                        var statusRaw = GetAt(6);
+
+                        if (string.IsNullOrWhiteSpace(code) || string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(brand))
+                        {
+                            errors.Add($"Row {rowIndex}: missing Code/Name/Brand");
+                            continue;
+                        }
+
+                        if (!decimal.TryParse(priceRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var price))
+                            price = 0m;
+                        if (!int.TryParse(stockRaw, NumberStyles.Any, CultureInfo.InvariantCulture, out var stock))
+                            stock = 0;
+                        int status = 1;
+                        if (int.TryParse(statusRaw, out var st) && (st == 0 || st == 1)) status = st;
+
+                        var product = new ProductModel
+                        {
+                            Code = code,
+                            Name = name,
+                            BrandName = brand,
+                            PriceVnd = price,
+                            Stock = stock,
+                            Description = string.IsNullOrWhiteSpace(desc) ? null : desc,
+                            Status = status,
+                            CreateBy = userId,
+                            UpdateBy = userId
+                        };
+
+                        try
+                        {
+                            await _productCommand.CreateAsync(product);
+                            success++;
+                        }
+                        catch (Exception ex)
+                        {
+                            errors.Add($"Row {rowIndex}: {ex.Message}");
+                        }
+                    }
+                }
+                else
+                {
+                    return BadRequest(new { ok = false, error = "chỉ hỗ trợ .xlsx và .csv" });
+                }
+
+                return Ok(new { ok = true, message = $"Nhập {success}/{total} cột", success, total, errors });
             }
             catch (Exception ex)
             {
@@ -206,20 +412,47 @@ namespace SPMH.Webs.Controllers
         }
 
         [HttpGet]
-        public async Task<IActionResult> ExportCsvNpoi(
-            [FromQuery] ProductModel? filter,
-            [FromQuery(Name = "brand")] string? brand = null,
-            [FromQuery(Name = "price")] decimal? price = null,
-            [FromQuery(Name = "stock")] int? stock = null,
-            [FromQuery(Name = "status")] int? status = null)
+        public async Task<IActionResult> ExportCsvNpoi()
         {
             try
             {
-                filter ??= new ProductModel();
+                var q = Request.Query;
+                var filter = new ProductModel();
+
+                string GetFirst(params string[] keys)
+                {
+                    foreach (var k in keys)
+                        if (q.TryGetValue(k, out var val) && !string.IsNullOrWhiteSpace(val)) return val.ToString();
+                    return string.Empty;
+                }
+
+                var kw = GetFirst("Keyword", "keyword");
+                if (!string.IsNullOrWhiteSpace(kw)) filter.Keyword = kw.Trim();
+
+                var brand = GetFirst("BrandName", "brandname", "brand");
                 if (!string.IsNullOrWhiteSpace(brand)) filter.BrandName = brand.Trim();
-                if (price is > 0) filter.PriceVnd = price.Value;
-                if (stock is > 0) filter.Stock = stock.Value;
-                filter.Status = status ?? -999;
+
+                string pfRaw = GetFirst("PriceFrom", "priceFrom", "pricefrom");
+                string ptRaw = GetFirst("PriceTo", "priceTo", "priceto");
+                string priceExactRaw = GetFirst("price", "Price", "PriceVnd");
+
+                if (decimal.TryParse(pfRaw, out var pf)) filter.PriceFrom = pf;
+                if (decimal.TryParse(ptRaw, out var pt)) filter.PriceTo = pt;
+                if (decimal.TryParse(priceExactRaw, out var pExact)) filter.PriceVnd = pExact;
+
+                string sfRaw = GetFirst("StockFrom", "stockFrom", "stockfrom");
+                string stRaw = GetFirst("StockTo", "stockTo", "stockto");
+                string stockExactRaw = GetFirst("stock", "Stock");
+
+                if (int.TryParse(sfRaw, out var sf)) filter.StockFrom = sf;
+                if (int.TryParse(stRaw, out var st)) filter.StockTo = st;
+                if (int.TryParse(stockExactRaw, out var sExact)) filter.Stock = sExact;
+
+                var statusRaw = GetFirst("Status", "status");
+                if (int.TryParse(statusRaw, out var stt) && (stt == 0 || stt == 1))
+                    filter.Status = stt;
+                else
+                    filter.Status = -999;
 
                 var fileResult = await _productMany.ExportCsvAsync(filter);
                 return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
@@ -229,7 +462,6 @@ namespace SPMH.Webs.Controllers
                 return BadRequest(ex.Message);
             }
         }
-
 
         [HttpGet]
         public async Task<IActionResult> ExportPdf(int id)

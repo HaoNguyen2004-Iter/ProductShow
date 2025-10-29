@@ -132,7 +132,6 @@ namespace SPMH.Services.Executes.Products
 
             var products = list.Select(x => new ProductModel
             {
-                Id = x.Id,
                 Code = x.Code,
                 Name = x.Name,
                 BrandName = x.BrandName ?? string.Empty,
@@ -147,7 +146,7 @@ namespace SPMH.Services.Executes.Products
             using var wb = new XSSFWorkbook();
             var sheet = wb.CreateSheet("Products");
             var header = sheet.CreateRow(0);
-            var headers = new[] { "Id", "Code", "Name", "Brand", "PriceVnd", "Stock", "Status", "Description", "CreateDate", "LastUpdate" };
+            var headers = new[] { "Code", "Name", "Brand", "PriceVnd", "Stock", "Status", "Description", "CreateDate", "LastUpdate" };
             for (int i = 0; i < headers.Length; i++)
                 header.CreateCell(i).SetCellValue(headers[i]);
 
@@ -159,7 +158,6 @@ namespace SPMH.Services.Executes.Products
             {
                 var row = sheet.CreateRow(rowIndex++);
                 int col = 0;
-                row.CreateCell(col++).SetCellValue(p.Id);
                 row.CreateCell(col++).SetCellValue(p.Code ?? string.Empty);
                 row.CreateCell(col++).SetCellValue(p.Name ?? string.Empty);
                 row.CreateCell(col++).SetCellValue(p.BrandName);
@@ -229,7 +227,6 @@ namespace SPMH.Services.Executes.Products
             if (filter == null)
                 return query;
 
-            // Brand filter (robust via Brands table)
             if (!string.IsNullOrWhiteSpace(filter.BrandName))
             {
                 var brandPattern = $"%{filter.BrandName.Trim()}%";
@@ -238,7 +235,6 @@ namespace SPMH.Services.Executes.Products
                         EF.Functions.Like(EF.Functions.Collate(b.Name, "Vietnamese_100_CI_AI"), brandPattern)));
             }
 
-            // Price range (existing)
             var priceFrom = filter.PriceFrom ?? 0m;
             var priceTo = filter.PriceTo ?? 0m;
             var hasExactPrice = filter.PriceVnd > 0 && priceFrom == 0 && priceTo == 0;

@@ -92,6 +92,102 @@ function updateBulkState() {
     $all.prop('checked', total > 0 && checked === total);
 }
 
+async function uploadFileInChunks(file, onProgress) {
+    const chunkSize = 500 * 1024; // 500 KB
+    const MaxTotalFileSize = 5 * 1024 * 1024; // 5 MB
+
+    if (!file || typeof file.size !== 'number') throw new Error('file không khả dụng');
+    if (file.size > MaxTotalFileSize) throw new Error('Không được up ảnh quá 5mb');
+
+    const totalChunks = Math.max(1, Math.ceil(file.size / chunkSize));
+    const fileCode = (crypto && crypto.randomUUID)
+        ? crypto.randomUUID().replaceAll('-', '')
+        : String(Date.now()) + '_' + Math.floor(Math.random() * 1000000);
+
+    let uploadedBytes = 0;
+
+    for (let i = 0; i < totalChunks; i++) {
+        const start = i * chunkSize;
+        const end = Math.min(file.size, start + chunkSize);
+        const blob = file.slice(start, end);
+
+        const fd = new FormData();
+        fd.append('chunk', blob, file.name);
+        fd.append('fileCode', fileCode);
+        fd.append('chunkIndex', i.toString());
+
+        let resp;
+        try {
+            resp = await fetch('/Product/UploadChunk', {
+                method: 'POST',
+                body: fd,
+                credentials: 'same-origin'
+            });
+        } catch (fetchErr) {
+            throw new Error('lỗi mạng' + i + (fetchErr?.message ? (': ' + fetchErr.message) : ''));
+        }
+
+        if (!resp.ok) {
+            let errMsg = `Chunk ${i} upload lỗi (${resp.status})`;
+            try {
+                const ct = resp.headers.get('Content-Type') || '';
+                if (ct.includes('application/json')) {
+                    const j = await resp.json();
+                    errMsg = j && (j.error || j.message) ? (j.error || j.message) : errMsg;
+                } else {
+                    const txt = await resp.text();
+                    if (txt) errMsg = txt;
+                }
+            } catch {
+                throw new Error(errMsg);
+            }
+        }
+        uploadedBytes += (end - start);
+        if (typeof onProgress === 'function') {
+            onProgress({ index: i, total: totalChunks, uploadedBytes, totalBytes: file.size });
+        }
+    }
+
+    const fdComplete = new FormData();
+    fdComplete.append('fileCode', fileCode);
+    fdComplete.append('fileName', file.name);
+    fdComplete.append('totalChunks', totalChunks.toString());
+
+    let respComplete;
+    try {
+        respComplete = await fetch('/Product/CompleteUpload', {
+            method: 'POST',
+            body: fdComplete,
+            credentials: 'same-origin'
+        });
+    } catch (fetchErr) {
+        throw new Error('Lỗi mạng' + (fetchErr?.message ? (' ' + fetchErr.message) : ''));
+    }
+
+    if (!respComplete.ok) {
+        let errMsg = `(${respComplete.status})`;
+        try {
+            const ct = respComplete.headers.get('Content-Type') || '';
+            if (ct.includes('application/json')) {
+                const j = await respComplete.json();
+                errMsg = j && (j.error || j.message) ? (j.error || j.message) : errMsg;
+            } else {
+                const txt = await respComplete.text();
+                if (txt) errMsg = txt;
+            }
+        } catch {
+            throw new Error(errMsg);
+        }
+
+    }
+
+    try {
+        return await respComplete.json();
+    } catch {
+        return { ok: true, url: await respComplete.text() };
+    }
+}
+
 (function ($) {
     // Đăng nhập
     $(document).on('click', '#btnLogin', function (e) {
@@ -285,7 +381,7 @@ function updateBulkState() {
     });
 
     // Xử lý nút lưu cho Create và Edit
-    $(document).on('click', '#btnSaveProduct', function () {
+    $(document).on('click', '#btnSaveProduct', async function () {
         const $wrap = $('#productForm');
         if ($wrap.length === 0) return;
 
@@ -305,9 +401,11 @@ function updateBulkState() {
             Status: f.readChecked('Status') ? 1 : 0
         };
 
-      
+
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
-        const $btn = $(this).prop('disabled', true);
+        const $btn = $(this);
+        const originalBtnHtml = $btn.html();
+        $btn.prop('disabled', true);
 
         const fileInput = $wrap.find('input[name="ProductImage"]')[0];
         const file = fileInput && fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
@@ -337,35 +435,29 @@ function updateBulkState() {
                     $('#modalBody').scrollTop(0);
                 })
                 .always(function () {
-                    $btn.prop('disabled', false);
+                    $btn.prop('disabled', false).html(originalBtnHtml);
                 });
         }
 
         if (file) {
-            const fd = new FormData();
-            fd.append('file', file);
-            $.ajax({
-                url: '/Product/Upload',
-                method: 'POST',
-                data: fd,
-                processData: false,
-                contentType: false,
-                headers: { 'X-Requested-With': 'XMLHttpRequest' }
-            })
-                .done(function (res) {
-                    if (res && res.ok && res.url) {
-                        payload.Url = res.url;
-                    }
-                    saveProduct();
-                })
-                .fail(function (xhr) {
-                    const res = xhr.responseJSON;
-                    const msg = (res && res.error) || xhr.responseText || 'Tải ảnh thất bại';
-                    $('#modalBody').find('.alert').remove();
-                    $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + msg + '</div>');
-                    $('#modalBody').scrollTop(0);
-                    $btn.prop('disabled', false);
-                });
+            try {
+                const progressCallback = p => {
+                    $btn.html(`Uploading ${p.index + 1}/${p.total}...`);
+                };
+                const res = await uploadFileInChunks(file, progressCallback);
+                if (res && res.ok && res.url) {
+                    payload.Url = res.url;
+                } else {
+                    if (res && res.url) payload.Url = res.url;
+                }
+                $btn.html(originalBtnHtml);
+                saveProduct();
+            } catch (err) {
+                $('#modalBody').find('.alert').remove();
+                $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + (err && err.message ? err.message : err) + '</div>');
+                $('#modalBody').scrollTop(0);
+                $btn.prop('disabled', false).html(originalBtnHtml);
+            }
         } else {
             saveProduct();
         }
@@ -525,18 +617,62 @@ function updateBulkState() {
         loadTable(url);
     });
 
-    //Xuất Excel toàn bảng
+    // Nhập Excel
+    $(document).on('click', '#btnImportExcel', async function (e) {
+        e.preventDefault();
+        const $btn = $(this).prop('disabled', true);
+        try {
+            const input = document.getElementById('importFile');
+            if (!input || !input.files || input.files.length === 0) {
+                showTempAlert('Vui lòng chọn tệp .xlsx hoặc .csv', 'warning');
+                return;
+            }
+            const file = input.files[0];
+            const fd = new FormData();
+            fd.append('file', file);
+
+            const resp = await fetch('/Product/Import', { method: 'POST', body: fd, credentials: 'same-origin' });
+            if (!resp.ok) {
+                let txt = '';
+                try { txt = await resp.text(); } catch { }
+                showTempAlert(txt || 'Nhập lỗi', 'danger', 5000);
+                return;
+            }
+
+            const data = await resp.json();
+            if (data && data.ok) {
+                showTempAlert(data.message || 'Nhập thành công', 'success', 4000);
+                if (Array.isArray(data.errors) && data.errors.length) {
+                    console.group('Nhập lỗi');
+                    data.errors.forEach(err => console.warn(err));
+                    console.groupEnd();
+                }
+                loadTable(buildSearchUrl());
+            } else {
+                const msg = (data && (data.error || data.message)) || 'Nhập xong nhưng gặp vấn đề';
+                showTempAlert(msg, 'warning', 5000);
+                if (data && Array.isArray(data.errors) && data.errors.length) {
+                    console.group('Nhập lỗi');
+                    data.errors.forEach(err => console.warn(err));
+                    console.groupEnd();
+                }
+            }
+        } catch (err) {
+            console.error(err);
+            showTempAlert('Lỗi khi nhập file', 'danger', 5000);
+        } finally {
+            $btn.prop('disabled', false);
+        }
+    });
+
+    // Xuất Excel toàn bảng
     $(document).on('click', '#btnExportCsv', async function () {
         const baseUrl = '/Product/ExportCsvNpoi';
 
         try {
-            let qs = '';
-            const searchParams = new URLSearchParams();
-
-            qs = searchParams.toString();
+            const qs = buildSearchQuery();
             const url = baseUrl + (qs ? ('?' + qs) : '');
 
-            
             const resp = await fetch(url, { method: 'GET', credentials: 'same-origin' });
 
             // 3. Xử lý lỗi
@@ -589,7 +725,7 @@ function updateBulkState() {
         }
     });
 
-    //Xuất PDF chi tiết sản phẩm
+    // Xuất PDF chi tiết sản phẩm
     $(document).on('click', '#btnExportPdf', async function (e) {
         e.preventDefault();
         const id = this.getAttribute('data-id');
@@ -608,7 +744,6 @@ function updateBulkState() {
 
             const blob = await resp.blob();
 
-            // Determine filename from Content-Disposition header
             let fileName = null;
             const cd = resp.headers.get('Content-Disposition') || '';
             let m = cd.match(/filename\*=UTF-8''([^;]+)/i);
@@ -637,7 +772,7 @@ function updateBulkState() {
         }
     });
 
-    //Xuất Word chi tiết sản phẩm
+    // Xuất Word chi tiết sản phẩm
     $(document).on('click', '#btnExportWord', async function (e) {
         e.preventDefault();
         const id = this.getAttribute('data-id');
