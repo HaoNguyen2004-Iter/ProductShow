@@ -147,7 +147,5 @@ namespace SPMH.Services.Executes.Products
             await _db.SaveChangesAsync();
             return true;
         }
-
-        
     }
 }

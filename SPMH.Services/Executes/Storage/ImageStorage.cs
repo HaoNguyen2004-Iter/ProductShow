@@ -30,7 +30,7 @@ namespace SPMH.Services.Executes.Storage
         }
 
         /// <summary>
-        /// Lưu từng chunk khi upload file lớn (phân mảnh)
+        /// Lưu từng chunk 
         /// </summary>
         public async Task SaveChunkAsync(Stream chunkStream, string fileCode, int chunkIndex)
         {
@@ -38,7 +38,7 @@ namespace SPMH.Services.Executes.Storage
             if (string.IsNullOrWhiteSpace(fileCode)) throw new ArgumentNullException(nameof(fileCode));
             if (chunkIndex < 0) throw new ArgumentOutOfRangeException(nameof(chunkIndex));
 
-            // Bảo mật: loại bỏ dấu nháy kép để tránh lỗi đường dẫn
+            // loại bỏ dấu nháy kép để tránh lỗi đường dẫn
             fileCode = fileCode.Replace("\"", string.Empty);
 
             // Thư mục tạm để lưu các chunk
@@ -47,7 +47,7 @@ namespace SPMH.Services.Executes.Storage
 
             var tempPath = Path.Combine(tempDir, $"{fileCode}_{chunkIndex}.chunk");
 
-            // Ghi chunk vào file tạm, đồng thời kiểm soát kích thước
+            // Ghi chunk vào file tạm
             using (var dst = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true))
             {
                 var buffer = new byte[81920]; // Buffer 80KB
@@ -64,7 +64,7 @@ namespace SPMH.Services.Executes.Storage
                     {
                         dst.Dispose();
                         if (File.Exists(tempPath)) File.Delete(tempPath);
-                        throw new InvalidOperationException($"Chunk size exceeds maximum allowed {MaxChunkSize} bytes.");
+                        throw new InvalidOperationException($"Chunk vượt quá dung lượng bytes.");
                     }
 
                     // Ghi dữ liệu đã đọc vào file tạm

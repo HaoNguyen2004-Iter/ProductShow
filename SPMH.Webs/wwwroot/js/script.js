@@ -92,7 +92,7 @@ function updateBulkState() {
     $all.prop('checked', total > 0 && checked === total);
 }
 
-async function uploadFileInChunks(file, onProgress) {
+async function uploadFileInChunks(file) {
     const chunkSize = 500 * 1024; // 500 KB
     const MaxTotalFileSize = 5 * 1024 * 1024; // 5 MB
 
@@ -143,9 +143,7 @@ async function uploadFileInChunks(file, onProgress) {
             }
         }
         uploadedBytes += (end - start);
-        if (typeof onProgress === 'function') {
-            onProgress({ index: i, total: totalChunks, uploadedBytes, totalBytes: file.size });
-        }
+        // no onProgress callback anymore
     }
 
     const fdComplete = new FormData();
@@ -178,7 +176,6 @@ async function uploadFileInChunks(file, onProgress) {
         } catch {
             throw new Error(errMsg);
         }
-
     }
 
     try {
@@ -380,6 +377,7 @@ async function uploadFileInChunks(file, onProgress) {
         }
     });
 
+    debugger;
     // Xử lý nút lưu cho Create và Edit
     $(document).on('click', '#btnSaveProduct', async function () {
         const $wrap = $('#productForm');
@@ -400,7 +398,6 @@ async function uploadFileInChunks(file, onProgress) {
             Url: '',
             Status: f.readChecked('Status') ? 1 : 0
         };
-
 
         const url = mode === 'edit' ? '/Product/Edit' : '/Product/Create';
         const $btn = $(this);
@@ -441,20 +438,13 @@ async function uploadFileInChunks(file, onProgress) {
 
         if (file) {
             try {
-                const progressCallback = p => {
-                    $btn.html(`Uploading ${p.index + 1}/${p.total}...`);
-                };
-                const res = await uploadFileInChunks(file, progressCallback);
-                if (res && res.ok && res.url) {
-                    payload.Url = res.url;
-                } else {
-                    if (res && res.url) payload.Url = res.url;
-                }
+                const res = await uploadFileInChunks(file);
+                if (res && res.url) payload.Url = res.url;
                 $btn.html(originalBtnHtml);
                 saveProduct();
             } catch (err) {
                 $('#modalBody').find('.alert').remove();
-                $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + (err && err.message ? err.message : err) + '</div>');
+                $('#modalBody').prepend('<div class="alert alert-danger mb-3">' + (err && err.message ? err.message : String(err)) + '</div>');
                 $('#modalBody').scrollTop(0);
                 $btn.prop('disabled', false).html(originalBtnHtml);
             }

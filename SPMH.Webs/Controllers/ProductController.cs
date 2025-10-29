@@ -1,10 +1,17 @@
-﻿using System.Globalization;
+﻿using System;
+using System.Diagnostics;
+using System.Globalization;
+using System.IO;
 using System.Security.Claims;
 using System.Text;
+using System.Runtime.InteropServices;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using NPOI.SS.UserModel;
 using NPOI.XSSF.UserModel;
+using Aspose.Words;
+using Aspose.Words.Tables;
 using SPMH.DBContext.Entities;
 using SPMH.Services.Executes;
 using SPMH.Services.Executes.Brands;
@@ -22,14 +29,22 @@ namespace SPMH.Webs.Controllers
         private readonly ProductOne _productOne;
         private readonly BrandMany _brandMany;
         private readonly ImageStorage _imageStorage;
+        private readonly IWebHostEnvironment _env;
 
-        public ProductController(ProductCommand productCommand, ProductMany productMany, ProductOne productOne, BrandMany brandMany, ImageStorage imageStorage)
+        public ProductController(
+            ProductCommand productCommand,
+            ProductMany productMany,
+            ProductOne productOne,
+            BrandMany brandMany,
+            ImageStorage imageStorage,
+            IWebHostEnvironment env)
         {
             _productCommand = productCommand;
             _productMany = productMany;
             _productOne = productOne;
             _brandMany = brandMany;
             _imageStorage = imageStorage;
+            _env = env;
         }
 
         public async Task<IActionResult> Index(
@@ -163,7 +178,7 @@ namespace SPMH.Webs.Controllers
         {
             if (ids == null || ids.Length == 0)
             {
-                return BadRequest(new { ok = false, error = "Chựa chọn sản phẩm để xóa" });
+                return BadRequest(new { ok = false, error = "Chừa chọn sản phẩm để xóa" });
             }
 
             var distinctIds = ids.Distinct().ToList();
@@ -245,7 +260,7 @@ namespace SPMH.Webs.Controllers
                 {
                     IWorkbook wb = new XSSFWorkbook(stream);
                     var sheet = wb.GetSheetAt(0);
-                    var startRow = sheet.FirstRowNum + 1; 
+                    var startRow = sheet.FirstRowNum + 1;
                     var lastRow = sheet.LastRowNum;
                     for (int r = startRow; r <= lastRow; r++)
                     {
@@ -454,8 +469,83 @@ namespace SPMH.Webs.Controllers
                 else
                     filter.Status = -999;
 
-                var fileResult = await _productMany.ExportCsvAsync(filter);
-                return File(fileResult.Content, fileResult.ContentType, fileResult.FileName);
+                // Lấy dữ liệu danh sách sản phẩm từ service (service chỉ trả dữ liệu, không tạo file)
+                var list = await _productMany.GetAllAsync(filter);
+
+                // Tạo workbook và sheet giống logic trước — rồi chuyển sheet thành CSV bytes
+                using var wb = new XSSFWorkbook();
+                var sheet = wb.CreateSheet("Products");
+                var header = sheet.CreateRow(0);
+                var headers = new[] { "Code", "Name", "Brand", "PriceVnd", "Stock", "Status", "Description", "CreateDate", "LastUpdate" };
+                for (int i = 0; i < headers.Length; i++)
+                    header.CreateCell(i).SetCellValue(headers[i]);
+
+                var dateStyle = wb.CreateCellStyle();
+                dateStyle.DataFormat = wb.CreateDataFormat().GetFormat("yyyy-MM-dd HH:mm:ss");
+
+                int rowIndex = 1;
+                foreach (var p in list)
+                {
+                    var row = sheet.CreateRow(rowIndex++);
+                    int col = 0;
+                    row.CreateCell(col++).SetCellValue(p.Code ?? string.Empty);
+                    row.CreateCell(col++).SetCellValue(p.Name ?? string.Empty);
+                    row.CreateCell(col++).SetCellValue(p.BrandName ?? string.Empty);
+                    row.CreateCell(col++).SetCellValue((double)(p.PriceVnd));
+                    row.CreateCell(col++).SetCellValue(p.Stock);
+                    row.CreateCell(col++).SetCellValue(p.Status);
+                    row.CreateCell(col++).SetCellValue(p.Description ?? string.Empty);
+
+                    var cellCreate = row.CreateCell(col++);
+                    if (p.CreateDate != default)
+                    {
+                        cellCreate.SetCellValue(p.CreateDate);
+                        cellCreate.CellStyle = dateStyle;
+                    }
+                    else
+                    {
+                        cellCreate.SetCellValue(string.Empty);
+                    }
+
+                    var cellUpdate = row.CreateCell(col++);
+                    if (p.LastUpdateDay != default)
+                    {
+                        cellUpdate.SetCellValue(p.LastUpdateDay);
+                        cellUpdate.CellStyle = dateStyle;
+                    }
+                    else
+                    {
+                        cellUpdate.SetCellValue(string.Empty);
+                    }
+                }
+
+                using var ms = new MemoryStream();
+                await using var writer = new StreamWriter(ms, new UTF8Encoding(true), 1024, leaveOpen: true);
+
+                for (int r = 0; r <= sheet.LastRowNum; r++)
+                {
+                    var row = sheet.GetRow(r);
+                    if (row == null)
+                    {
+                        await writer.WriteLineAsync();
+                        continue;
+                    }
+
+                    var values = new List<string>();
+                    for (int c = 0; c < row.LastCellNum; c++)
+                    {
+                        var cell = row.GetCell(c);
+                        string value = cell?.ToString() ?? "";
+                        values.Add($"\"{value.Replace("\"", "\"\"")}\"");
+                    }
+                    await writer.WriteLineAsync(string.Join(",", values));
+                }
+
+                await writer.FlushAsync();
+                ms.Position = 0;
+
+                var fileName = $"products_{DateTime.Now:yyyyMMdd_HHmmss}.csv";
+                return File(ms.ToArray(), "text/csv", fileName);
             }
             catch (Exception ex)
             {
@@ -468,10 +558,119 @@ namespace SPMH.Webs.Controllers
         {
             try
             {
-                var pdfBytes = await _productOne.GeneratePdfAsync(id);
                 var product = await _productOne.GetProductByIdAsync(id);
+
+                // Build HTML like in ProductOne.GeneratePdfAsync
+                string imgHtml = string.Empty;
+                if (!string.IsNullOrWhiteSpace(product.Url))
+                {
+                    try
+                    {
+                        var urlTrim = product.Url.Trim();
+                        if (!urlTrim.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                            && !urlTrim.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var rel = urlTrim.TrimStart('/');
+                            var physicalPath = Path.Combine(_env.WebRootPath, rel.Replace('/', Path.DirectorySeparatorChar));
+                            if (System.IO.File.Exists(physicalPath))
+                            {
+                                var bytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+                                var ext = Path.GetExtension(physicalPath).ToLowerInvariant();
+                                var mime = ext switch
+                                {
+                                    ".png" => "image/png",
+                                    ".jpg" => "image/jpeg",
+                                    ".jpeg" => "image/jpeg",
+                                    ".gif" => "image/gif",
+                                    _ => "application/octet-stream"
+                                };
+                                var b64 = Convert.ToBase64String(bytes);
+                                imgHtml = $"<div style=\"text-align:center;margin-bottom:12px;\"><img src=\"data:{mime};base64,{b64}\" style=\"max-height:220px;object-fit:contain;\"/></div>";
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                var html = new StringBuilder();
+                html.AppendLine("<!doctype html><html><head><meta charset='utf-8'>");
+                html.AppendLine("<style>");
+                html.AppendLine("body{font-family:Arial,Helvetica,sans-serif;margin:20px;color:#222}");
+                html.AppendLine(".hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}");
+                html.AppendLine(".title{font-size:20px;font-weight:700}");
+                html.AppendLine(".meta{font-size:12px;color:#666}");
+                html.AppendLine(".grid{display:flex;flex-wrap:wrap;gap:12px}");
+                html.AppendLine(".cell{flex:1 1 45%;min-width:200px;background:#f8f8f8;padding:10px;border-radius:6px}");
+                html.AppendLine(".label{font-weight:600;color:#444;margin-bottom:6px;display:block}");
+                html.AppendLine(".val{font-size:14px;color:#111}");
+                html.AppendLine(".desc{margin-top:10px;padding:10px;background:#fff;border:1px solid #eee;border-radius:6px}");
+                html.AppendLine("</style>");
+                html.AppendLine("</head><body>");
+                html.AppendLine("<div class=\"hdr\">");
+                html.AppendLine($"<div class=\"title\">{System.Net.WebUtility.HtmlEncode(product.Name)}</div>");
+                html.AppendLine($"<div class=\"meta\">Mã: {System.Net.WebUtility.HtmlEncode(product.Code)}<br/>Thương hiệu: {System.Net.WebUtility.HtmlEncode(product.BrandName)}</div>");
+                html.AppendLine("</div>");
+                html.AppendLine(imgHtml);
+                html.AppendLine("<div class=\"grid\">");
+                html.AppendLine("<div class=\"cell\"><span class=\"label\">Giá (VND)</span><div class=\"val\">" + product.PriceVnd.ToString("#,0") + "</div></div>");
+                html.AppendLine("<div class=\"cell\"><span class=\"label\">Tồn kho</span><div class=\"val\">" + product.Stock.ToString("#,0") + "</div></div>");
+                html.AppendLine("<div class=\"cell\"><span class=\"label\">Trạng thái</span><div class=\"val\">" + (product.Status == 1 ? "Hoạt động" : "Dừng bán") + "</div></div>");
+                html.AppendLine("<div class=\"cell\"><span class=\"label\">Người tạo</span><div class=\"val\">" + System.Net.WebUtility.HtmlEncode(product.CreateByName ?? string.Empty) + "</div></div>");
+                html.AppendLine("</div>");
+                html.AppendLine("<div class=\"desc\"><span class=\"label\">Mô tả</span><div class=\"val\">" + System.Net.WebUtility.HtmlEncode(product.Description ?? string.Empty).Replace("\n", "<br/>") + "</div></div>");
+                html.AppendLine("<div style=\"margin-top:14px;font-size:11px;color:#888\">In lúc: " + DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss") + "</div>");
+                html.AppendLine("</body></html>");
+
+                var htmlString = html.ToString();
+
+                // wkhtmltopdf binary path under wwwroot/Rotativa
+                var rotativaDir = Path.Combine(_env.WebRootPath, "Rotativa");
+                var exeName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "wkhtmltopdf.exe" : "wkhtmltopdf";
+                var exePath = Path.Combine(rotativaDir, exeName);
+
+                if (!System.IO.File.Exists(exePath))
+                    return BadRequest($"wkhtmltopdf not found at '{exePath}'. Put the binary into wwwroot/Rotativa.");
+
+                var psi = new ProcessStartInfo
+                {
+                    FileName = exePath,
+                    Arguments = "- -",
+                    UseShellExecute = false,
+                    RedirectStandardInput = true,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true,
+                    CreateNoWindow = true
+                };
+
+                using var proc = Process.Start(psi) ?? throw new InvalidOperationException("Unable to start wkhtmltopdf process.");
+
+                await using (var stdin = proc.StandardInput.BaseStream)
+                {
+                    var htmlBytes = Encoding.UTF8.GetBytes(htmlString);
+                    await stdin.WriteAsync(htmlBytes, 0, htmlBytes.Length);
+                    await stdin.FlushAsync();
+                }
+
+                await using var ms = new MemoryStream();
+                var copyTask = proc.StandardOutput.BaseStream.CopyToAsync(ms);
+
+                var exited = proc.WaitForExit(30000);
+                if (!exited)
+                {
+                    try { proc.Kill(entireProcessTree: true); } catch { }
+                    return BadRequest("wkhtmltopdf timed out.");
+                }
+
+                await copyTask;
+
+                var stderr = await proc.StandardError.ReadToEndAsync();
+                if (proc.ExitCode != 0)
+                {
+                    return BadRequest("wkhtmltopdf failed: " + stderr);
+                }
+
                 var fileName = $"product_{product.Id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.pdf";
-                return File(pdfBytes, "application/pdf", fileName);
+                return File(ms.ToArray(), "application/pdf", fileName);
             }
             catch (Exception ex)
             {
@@ -484,10 +683,194 @@ namespace SPMH.Webs.Controllers
         {
             try
             {
-                var wordBytes = await _productOne.GenerateWordAsync(id);
                 var product = await _productOne.GetProductByIdAsync(id);
+
+                var doc = new Aspose.Words.Document();
+                var builder = new Aspose.Words.DocumentBuilder(doc);
+
+                // ==== PAGE + BASE STYLE ====
+                builder.PageSetup.PaperSize = Aspose.Words.PaperSize.A4;
+                builder.PageSetup.TopMargin = Aspose.Words.ConvertUtil.MillimeterToPoint(20);
+                builder.PageSetup.BottomMargin = Aspose.Words.ConvertUtil.MillimeterToPoint(20);
+                builder.PageSetup.LeftMargin = Aspose.Words.ConvertUtil.MillimeterToPoint(20);
+                builder.PageSetup.RightMargin = Aspose.Words.ConvertUtil.MillimeterToPoint(20);
+
+                builder.Font.Name = "Segoe UI";
+                builder.Font.Size = 11;
+                builder.Font.Color = System.Drawing.Color.Black;
+                builder.ParagraphFormat.LineSpacingRule = LineSpacingRule.Multiple;
+                builder.ParagraphFormat.LineSpacing = 14;
+                builder.ParagraphFormat.SpaceAfter = 6;
+                builder.ParagraphFormat.SpaceBefore = 0;
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Left;
+
+                // ==== HEADER / TITLE ====
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Center;
+                builder.Font.Size = 18;
+                builder.Font.Bold = true;
+                builder.Font.Color = System.Drawing.Color.FromArgb(30, 30, 30);
+                builder.Writeln(product.Name ?? string.Empty);
+
+                builder.Font.Size = 11;
+                builder.Font.Bold = false;
+                builder.Font.Color = System.Drawing.Color.Gray;
+                builder.Writeln($"Mã sản phẩm: {product.Code ?? "-"}");
+
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Left;
+                builder.Font.Color = System.Drawing.Color.Black;
+                builder.InsertParagraph();
+
+                var shapeLine = new Aspose.Words.Drawing.Shape(doc, Aspose.Words.Drawing.ShapeType.Line)
+                {
+                    StrokeColor = System.Drawing.Color.Silver,
+                    StrokeWeight = 1.0,
+                    Width = 450
+                };
+                shapeLine.RelativeHorizontalPosition = Aspose.Words.Drawing.RelativeHorizontalPosition.Margin;
+                shapeLine.RelativeVerticalPosition = Aspose.Words.Drawing.RelativeVerticalPosition.Paragraph;
+                shapeLine.WrapType = Aspose.Words.Drawing.WrapType.None;
+                builder.InsertNode(shapeLine);
+
+                builder.InsertParagraph();
+                builder.InsertParagraph();
+
+                // ==== IMAGE BLOCK ====
+                if (!string.IsNullOrWhiteSpace(product.Url))
+                {
+                    try
+                    {
+                        var urlTrim = product.Url.Trim();
+                        if (!urlTrim.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+                            && !urlTrim.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                        {
+                            var rel = urlTrim.TrimStart('/');
+                            var physicalPath = Path.Combine(_env.WebRootPath, rel.Replace('/', Path.DirectorySeparatorChar));
+                            if (System.IO.File.Exists(physicalPath))
+                            {
+                                var imgBytes = await System.IO.File.ReadAllBytesAsync(physicalPath);
+                                using var imgStream = new MemoryStream(imgBytes);
+
+                                builder.ParagraphFormat.Alignment = ParagraphAlignment.Center;
+
+                                var imgShape = builder.InsertImage(imgStream);
+                                if (imgShape.Width > 400)
+                                {
+                                    var ratio = 400.0 / imgShape.Width;
+                                    imgShape.Width = 400;
+                                    imgShape.Height = imgShape.Height * ratio;
+                                }
+
+                                builder.InsertParagraph();
+                                builder.Font.Size = 9;
+                                builder.Font.Color = System.Drawing.Color.Gray;
+                                builder.Font.Bold = false;
+                                builder.Writeln("Hình minh họa sản phẩm");
+
+                                // reset style
+                                builder.Font.Size = 11;
+                                builder.Font.Color = System.Drawing.Color.Black;
+                                builder.Font.Bold = false;
+                                builder.InsertParagraph();
+                            }
+                        }
+                    }
+                    catch { }
+                }
+
+                // ==== PRODUCT INFO TABLE ====
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Left;
+                builder.Font.Bold = true;
+                builder.Font.Size = 12;
+                builder.Writeln("Thông tin chi tiết");
+                builder.Font.Bold = false;
+                builder.Font.Size = 11;
+
+                builder.InsertParagraph();
+
+                builder.StartTable();
+
+                builder.CellFormat.ClearFormatting();
+                builder.RowFormat.ClearFormatting();
+                builder.CellFormat.VerticalAlignment = CellVerticalAlignment.Center;
+                builder.CellFormat.LeftPadding = 6;
+                builder.CellFormat.RightPadding = 6;
+                builder.CellFormat.TopPadding = 4;
+                builder.CellFormat.BottomPadding = 4;
+                builder.CellFormat.Borders.Color = System.Drawing.Color.Silver;
+                builder.CellFormat.Borders.LineWidth = 0.5;
+
+                void AddRowStyled(string label, string value)
+                {
+                    builder.InsertCell();
+                    builder.CellFormat.Width = 140;
+                    builder.Font.Bold = true;
+                    builder.Font.Color = System.Drawing.Color.Black;
+                    builder.Write(label);
+
+                    builder.InsertCell();
+                    builder.CellFormat.Width = 300;
+                    builder.Font.Bold = false;
+                    builder.Font.Color = System.Drawing.Color.Black;
+                    builder.Write(value ?? string.Empty);
+
+                    builder.EndRow();
+                }
+
+                AddRowStyled("Thương hiệu", product.BrandName ?? string.Empty);
+                AddRowStyled("Giá (VND)", product.PriceVnd.ToString("#,0"));
+                AddRowStyled("Tồn kho", product.Stock.ToString("#,0"));
+                AddRowStyled("Trạng thái", product.Status == 1 ? "Hoạt động" : "Dừng bán");
+                AddRowStyled("Người tạo", product.CreateByName ?? string.Empty);
+                AddRowStyled("Ngày tạo", product.CreateDate != default ? product.CreateDate.ToString("yyyy-MM-dd HH:mm:ss") : string.Empty);
+                AddRowStyled("Người sửa gần nhất", product.UpdateByName ?? string.Empty);
+                AddRowStyled("Ngày sửa gần nhất", product.LastUpdateDay != default ? product.LastUpdateDay.ToString("yyyy-MM-dd HH:mm:ss") : string.Empty);
+
+                builder.EndTable();
+
+                builder.InsertParagraph();
+                builder.InsertParagraph();
+
+                // ==== DESCRIPTION ====
+                builder.Font.Bold = true;
+                builder.Font.Size = 12;
+                builder.Font.Color = System.Drawing.Color.Black;
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Left;
+                builder.Writeln("Mô tả sản phẩm");
+
+                builder.Font.Bold = false;
+                builder.Font.Size = 11;
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Justify;
+
+                if (!string.IsNullOrWhiteSpace(product.Description))
+                {
+                    var lines = product.Description
+                        .Replace("\r\n", "\n")
+                        .Split('\n', StringSplitOptions.RemoveEmptyEntries);
+
+                    foreach (var line in lines)
+                    {
+                        builder.Writeln(line.Trim());
+                    }
+                }
+                else
+                {
+                    builder.Writeln("(Không có mô tả)");
+                }
+
+                builder.InsertParagraph();
+                builder.InsertParagraph();
+
+                // ==== FOOTER ====
+                builder.ParagraphFormat.Alignment = ParagraphAlignment.Left;
+                builder.Font.Size = 9;
+                builder.Font.Bold = false;
+                builder.Font.Color = System.Drawing.Color.Gray;
+                builder.Writeln($"In lúc: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+
+                using var msOut = new MemoryStream();
+                doc.Save(msOut, SaveFormat.Docx);
                 var fileName = $"product_{product.Id}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.docx";
-                return File(wordBytes, "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName);
+                return File(msOut.ToArray(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document", fileName);
             }
             catch (Exception ex)
             {
